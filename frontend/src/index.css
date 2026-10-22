@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-page text-ink antialiased; font-feature-settings: "cv11", "ss01"; }
+  h1, h2, h3 { @apply text-ink; }
+  .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@layer components {
+  .card { @apply bg-white rounded-xl border border-line shadow-card; }
+  .card-pad { @apply p-5; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition
+    focus:outline-none focus-visible:ring-2 focus-visible:ring-saffron-500 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-navy-700 text-white hover:bg-navy-800; }
+  .btn-accent { @apply btn bg-saffron-500 text-white hover:bg-saffron-600; }
+  .btn-ghost { @apply btn bg-white text-ink border border-line hover:bg-navy-50; }
+  .btn-sm { @apply px-2.5 py-1.5 text-xs; }
+  .input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm placeholder:text-ink-3
+    focus:outline-none focus:ring-2 focus:ring-navy-100 focus:border-navy-600; }
+  .label { @apply block text-xs font-medium text-ink-2 mb-1; }
+  .th { @apply px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-3 bg-[#fafaf8] border-b border-line; }
+  .td { @apply px-3 py-2.5 text-sm border-b border-line/70 align-top; }
+  .chip { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+}
