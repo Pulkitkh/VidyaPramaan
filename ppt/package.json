@@ -1,0 +1,14 @@
+{
+  "name": "vidya-pramaan-deck",
+  "private": true,
+  "description": "Builds the SIH26263 idea-submission deck from the prototype screenshots",
+  "scripts": { "build": "node build_deck.js ../docs/screenshots SIH26263_AI_Riders_Idea.pptx" },
+  "dependencies": {
+    "pptxgenjs": "3.12.0",
+    "qrcode": "1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-icons": "5.3.0",
+    "sharp": "0.33.5"
+  }
+}

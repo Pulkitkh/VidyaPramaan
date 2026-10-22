@@ -1,0 +1,19 @@
+{
+ "dataset": {
+  "institutions": 240,
+  "students": 47872,
+  "enrolments": 48053
+ },
+ "national_scan_seconds": 1.03,
+ "risk_scoring_seconds": 0.66,
+ "scan_findings": 1424,
+ "dual_enrolment_recall": "181/181",
+ "identity_duplicate_recall": "60/60",
+ "risk_precision_at_k": "41/42",
+ "high_risk_alerts_all_planted": true,
+ "high_risk_alerts": 8,
+ "upload_rows": 77,
+ "upload_validation_ms": 57,
+ "planted_defect_types_caught": "16/16",
+ "upload_rows_clean": 56
+}
