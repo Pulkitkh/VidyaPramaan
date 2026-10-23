@@ -451,7 +451,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--team-id", default="")
     ap.add_argument("--team-name", default="AI Riders")
-    ap.add_argument("--live-url", default="")
+    ap.add_argument("--live-url", default="https://vidya-pramaan-sih26263.onrender.com")
     ap.add_argument("--repo-url", default="https://github.com/Pulkitkh/VidyaPramaan")
     ap.add_argument("--template", default=str(HERE / "template" / "SIH2026-IDEA-Presentation-Format.pptx"))
     ap.add_argument("--out", default=str(HERE / "SIH26263_AI_Riders_Idea.pptx"))
@@ -469,7 +469,7 @@ def main():
     slides = list(prs.slides)
     for s in slides[1:]:
         set_runs(find(s, "Oval"), a.team_name, size=12)
-    slide1(slides[0], a.team_id or "(as allotted on the SIH portal)", a.team_name)
+    slide1(slides[0], a.team_id, a.team_name)
     slide2(slides[1], a.team_name)
     slide3(slides[2], a.live_url, build)
     slide4(slides[3])
