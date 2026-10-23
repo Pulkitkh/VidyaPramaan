@@ -5,6 +5,7 @@ The supernumerary caps below are DEMO values modelled on the AICTE Approval
 Process Handbook (APH); verify them against the APH in force before any real use.
 """
 import os
+import secrets
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -13,7 +14,9 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 SAMPLE_CSV = Path(os.getenv("VP_SAMPLE_CSV", BASE_DIR.parent / "sample-data" / "demo_upload_btech_cse.csv"))
 DATABASE_URL = os.getenv("VP_DATABASE_URL", f"sqlite:///{DATA_DIR / 'vidyapramaan.db'}")
-SECRET_KEY = os.getenv("VP_SECRET_KEY", "dev-only-secret-change-me")
+# Signs login sessions. Set VP_SECRET_KEY in every deployment; without it a random key is generated
+# per process (sessions then end on restart), so no usable default secret exists in the code.
+SECRET_KEY = os.getenv("VP_SECRET_KEY") or secrets.token_urlsafe(32)
 # Public address printed in certificate QR codes. Hosting platforms expose it automatically.
 PUBLIC_BASE_URL = (os.getenv("VP_PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL")
                    or (f"https://{os.environ['SPACE_HOST']}" if os.getenv("SPACE_HOST") else "")

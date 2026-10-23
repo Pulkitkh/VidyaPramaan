@@ -4,7 +4,7 @@ Each statement on the slides maps to an automated check or a measured result. Ru
 
 ```bash
 cd backend && ../.venv/bin/python -m pytest -q                         # 25 API tests (SQLite)
-VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same 25 on PostgreSQL
+VP_DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db> ../.venv/bin/python -m pytest -q   # same 25 on PostgreSQL
 cd backend && python -m app.seed && python -m scripts.benchmark         # detection numbers (docs/benchmark.json)
 cd e2e && npm test                                                      # browser walkthrough, server on :8000
 ```

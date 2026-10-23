@@ -10,3 +10,14 @@ backend/data/
 *.db-wal
 .DS_Store
 ppt/.build/
+# Secrets and local credentials: never commit these
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.sqlite
+secrets/
+.proxy-ca.crt

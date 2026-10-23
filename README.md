@@ -68,7 +68,7 @@ The repository includes a `Dockerfile` (UI + API in one container, synthetic dat
 
 **Render (free plan)**
 1. Sign in at [render.com](https://render.com) with GitHub and allow access to this repository.
-2. **New → Blueprint** → pick `Pulkitkh/AI_Riders_` → **Apply**. The first build takes about 5–10 minutes.
+2. **New → Blueprint** → pick `Pulkitkh/VidyaPramaan` → **Apply**. The first build takes about 5–10 minutes.
 3. Open `https://<service-name>.onrender.com`. QR codes automatically use this address.
 
 Free instances sleep after about 15 minutes without traffic, so the first visit after a pause can take up to a minute. Each restart returns to the clean demo dataset.
@@ -146,7 +146,7 @@ Supernumerary caps and the admission window in `config.py` are **demo values** m
 
 ```bash
 cd backend && ../.venv/bin/python -m pytest -q          # 25 API tests on an isolated database
-VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL
+VP_DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db> ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL
 cd e2e && npm install && npx playwright install chromium && npm test   # browser walkthrough (server running on :8000)
 ```
 

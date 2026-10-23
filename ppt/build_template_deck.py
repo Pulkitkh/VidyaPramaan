@@ -452,7 +452,7 @@ def main():
     ap.add_argument("--team-id", default="")
     ap.add_argument("--team-name", default="AI Riders")
     ap.add_argument("--live-url", default="")
-    ap.add_argument("--repo-url", default="https://github.com/Pulkitkh/AI_Riders_")
+    ap.add_argument("--repo-url", default="https://github.com/Pulkitkh/VidyaPramaan")
     ap.add_argument("--template", default=str(HERE / "template" / "SIH2026-IDEA-Presentation-Format.pptx"))
     ap.add_argument("--out", default=str(HERE / "SIH26263_AI_Riders_Idea.pptx"))
     a = ap.parse_args()
