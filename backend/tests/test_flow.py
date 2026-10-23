@@ -1,4 +1,5 @@
 """End-to-end tests over a small synthetic dataset (isolated temp database)."""
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -211,3 +212,98 @@ def test_exports_neutralise_formulas():
     from app.main import _cell
     assert _cell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")"
     assert _cell("Pune") == "Pune" and _cell(5) == 5
+
+
+# --------------------------------------------------------------------------- claims made in the idea deck
+@pytest.fixture(scope="module")
+def committed(inst):
+    """A fresh upload + commit of the demo file (runs after the demo-reset test)."""
+    with open(os.environ["VP_SAMPLE_CSV"], "rb") as fh:
+        b = client.post("/api/institution/uploads", headers=inst, files={"file": ("cse.csv", fh, "text/csv")}).json()
+    r = client.post(f"/api/institution/uploads/{b['id']}/commit", headers=inst)
+    assert r.status_code == 200, r.text
+    return b
+
+
+def test_rule_catalogue_has_25_explained_rules(committed):
+    from app.validation import RULES
+    assert len(RULES) == 25
+    for row in committed["rows"]:
+        for f in row["findings"]:
+            assert f["code"] in RULES and f["message"] and isinstance(f["evidence"], dict) and f["rule_version"]
+
+
+def test_json_api_validate_and_submit(inst):
+    import csv as _csv
+    rows = list(_csv.DictReader(open(os.environ["VP_SAMPLE_CSV"])))[:3]
+    v = client.post("/api/v1/students:validate", headers=inst, json=rows)
+    assert v.status_code == 200 and len(v.json()) == 3
+    s = client.post("/api/v1/students:submit", headers=inst, json=rows)
+    assert s.status_code == 200 and s.json()["source"] == "API"
+    spec = client.get("/openapi.json").json()
+    assert "/api/v1/students:submit" in spec["paths"] and "/api/v1/students:validate" in spec["paths"]
+
+
+def test_provisional_ids_for_students_without_apaar(inst, committed):
+    rows = client.get("/api/institution/students?limit=200", headers=inst).json()
+    no_apaar = [r for r in rows if not r["student"]["apaar_id"]]
+    assert no_apaar and all(r["student"]["provisional_id"].startswith("PRV-") for r in no_apaar)
+
+
+def test_officer_decision_is_audited(aicte, inst):
+    f = client.get("/api/findings?limit=1", headers=aicte).json()["items"][0]
+    assert client.post(f"/api/findings/{f['id']}/decision", headers=inst, json={"decision": "RESOLVED"}).status_code == 403
+    r = client.post(f"/api/findings/{f['id']}/decision", headers=aicte,
+                    json={"decision": "RESOLVED", "note": "verified with institution"})
+    assert r.status_code == 200 and r.json()["status"] == "RESOLVED"
+    log = client.get("/api/audit?action=FINDING_RESOLVED", headers=aicte).json()["items"]
+    assert any(e["entity_id"] == str(f["id"]) and e["details"]["note"] == "verified with institution" for e in log)
+
+
+def test_auditor_is_read_only(aicte):
+    aud = login("auditor")
+    assert client.get("/api/dashboard/national", headers=aud).status_code == 200
+    f = client.get("/api/findings?limit=1", headers=aud).json()["items"][0]
+    assert client.post(f"/api/findings/{f['id']}/decision", headers=aud, json={"decision": "DISMISSED"}).status_code == 403
+    assert client.post("/api/demo/reset", headers=aud).status_code == 403
+    assert client.post("/api/scan", headers=aud).status_code == 403
+
+
+def test_consent_revocation_and_access_log():
+    verifier, student = login("hr.verifier"), login("student.ananya")
+    apaar = client.get("/api/me/record", headers=student).json()["student"]["apaar_id"]
+    cid = client.post("/api/verify/consent-requests", headers=verifier,
+                      json={"apaar_id": apaar, "purpose": "Revocation check", "scope": ["programme"]}).json()["id"]
+    otp = next(c for c in client.get("/api/me/consents", headers=student).json() if c["id"] == cid)["demo_otp"]
+    client.post(f"/api/me/consents/{cid}/decision", headers=student, json={"decision": "APPROVE", "otp": otp}).raise_for_status()
+    assert client.get(f"/api/verify/consent-requests/{cid}/result", headers=verifier).json()["disclosed"]
+    log = client.get("/api/me/record", headers=student).json()["access_log"]
+    assert any(l["purpose"] == "Revocation check" and l["basis"] == "CONSENT" for l in log)
+    client.post(f"/api/me/consents/{cid}/revoke", headers=student).raise_for_status()
+    after = client.get(f"/api/verify/consent-requests/{cid}/result", headers=verifier).json()
+    assert after["status"] == "REVOKED" and after["disclosed"] is None
+
+
+def test_apaar_ids_are_masked_in_aicte_views(aicte):
+    import re
+    items = client.get("/api/findings?limit=200", headers=aicte).json()["items"]
+    blob = json.dumps(items)
+    assert not re.search(r"(?<!\d)\d{12}(?!\d)", blob), "full APAAR IDs must not appear in the review queue"
+    detail = client.get(f"/api/findings/{items[0]['id']}", headers=aicte).json()
+    if "record" in detail:
+        assert detail["record"]["student"]["apaar_id"].startswith("XXXX-") or detail["record"]["student"]["apaar_id"] == "—"
+
+
+def test_risk_scores_come_with_plain_reasons(aicte):
+    top = client.get("/api/dashboard/national", headers=aicte).json()["top_risk"][0]
+    assert top["risk_score"] >= 70 and top["reasons"] and all("peer median" in r["text"] for r in top["reasons"])
+
+
+def test_excel_template_has_dropdowns_and_report_has_diversity(aicte):
+    import io as _io
+    from openpyxl import load_workbook
+    wb = load_workbook(_io.BytesIO(client.get("/api/institution/template.xlsx").content))
+    assert len(wb.active.data_validations.dataValidation) >= 9
+    token = aicte["Authorization"].split()[1]
+    rep = load_workbook(_io.BytesIO(client.get("/api/reports/state-summary.xlsx", params={"token": token}).content))
+    assert {"State summary", "Findings by rule", "Diversity"} <= set(rep.sheetnames)

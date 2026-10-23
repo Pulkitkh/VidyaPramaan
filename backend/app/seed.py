@@ -388,6 +388,13 @@ def main(n_institutions: int | None = None) -> dict:
         for i in range(0, len(rows), 5000):
             db.execute(insert(model), rows[i:i + 5000])
     db.commit()
+    if engine.dialect.name == "postgresql":
+        # Rows were inserted with explicit ids; move each id sequence past them.
+        from sqlalchemy import text
+        for table in ("institution", "programme", "student", "enrolment"):
+            db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                            f"(SELECT COALESCE(MAX(id), 1) FROM {table}))"))
+        db.commit()
     audit.record(db, "system", "SYSTEM", "SEED_SYNTHETIC_DATA", "dataset", "national",
                  {"institutions": len(b.institutions), "students": len(b.students),
                   "enrolments": len(b.enrolments), "note": "synthetic demo data"})

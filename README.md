@@ -62,6 +62,19 @@ cd backend && ../.venv/bin/python -m app.seed && ../.venv/bin/uvicorn app.main:a
 
 For frontend development, run `npm run dev` in `frontend/` (it proxies `/api` to port 8000).
 
+## Deploy a public demo (free)
+
+The repository includes a `Dockerfile` (UI + API in one container, synthetic data baked in) and a Render blueprint (`render.yaml`). The container was tested locally under a 512 MB memory limit: it starts in about 5 seconds and uses about 210 MB after the full demo.
+
+**Render (free plan)**
+1. Sign in at [render.com](https://render.com) with GitHub and allow access to this repository.
+2. **New → Blueprint** → pick `Pulkitkh/AI_Riders_` → **Apply**. The first build takes about 5–10 minutes.
+3. Open `https://<service-name>.onrender.com`. QR codes automatically use this address.
+
+Free instances sleep after about 15 minutes without traffic, so the first visit after a pause can take up to a minute. Each restart returns to the clean demo dataset.
+
+**Any Docker host:** `docker build -t vidya-pramaan . && docker run -p 8000:8000 -e VP_SECRET_KEY=<random> -e VP_PUBLIC_BASE_URL=https://<your-host> vidya-pramaan`
+
 ## Five-minute demo script
 
 1. **Institution admin** → Overview shows B.Tech CSE has no data yet → **Upload students** (Excel or CSV) → *Try the demo file*. 77 rows: 65 accepted, 6 with review flags, 12 rejected, with codes for missing / invalid / unregistered APAAR, registry mismatch, duplicates within the file and across institutions, admissions #61–#63 beyond intake, the 4th TFW seat over its cap, FN without passport, OCI without card, and more.
@@ -132,7 +145,8 @@ Supernumerary caps and the admission window in `config.py` are **demo values** m
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q          # 16 API tests on an isolated database
+cd backend && ../.venv/bin/python -m pytest -q          # 25 API tests on an isolated database
+VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL
 cd e2e && npm install && npx playwright install chromium && npm test   # browser walkthrough (server running on :8000)
 ```
 
@@ -144,11 +158,19 @@ The browser walkthrough resets the demo, then drives all five roles through the 
 
 - Live APAAR lookups: the registry adapter uses a mock. Real lookups need AICTE to be onboarded as a DigiLocker / API Setu partner.
 - AICTE SSO (OIDC + MFA), rate limiting and mTLS. The prototype uses signed demo sessions with role-based access and 8-hour expiry.
-- PostgreSQL with encrypted PII columns and row-level security. The prototype uses SQLite.
+- Encrypted PII columns and row-level security in PostgreSQL. The prototype runs on SQLite, and the test suite also passes on PostgreSQL 16.
 - Real OTP delivery. The demo shows the OTP on screen.
 - Hindi covers navigation and headline labels, not every screen.
-- No public deployment; it runs locally with `./run.sh`.
+- Hosting needs a free Render (or other Docker) account; see "Deploy a public demo".
+
+Every claim in the idea deck is mapped to its evidence in [`docs/CLAIMS.md`](docs/CLAIMS.md).
 
 ## Submission deck
 
-`ppt/SIH26263_AI_Riders_Idea.pptx` and `.pdf`: six slides in SIH idea-template order (title, proposed solution, technical approach, feasibility & viability, impact & benefits, research & references). Rebuild with `cd ppt && npm install && npm run build` after refreshing `docs/screenshots/`. Fill in the Team ID on slide 1 and copy the content onto the official SIH template if your institute requires it.
+`ppt/SIH26263_AI_Riders_Idea.pptx` and `.pdf` are built inside the official SIH 2026 idea template (`ppt/template/`): six slides, template frame and pointers unchanged, content as diagrams, flowcharts and prototype screenshots.
+
+```bash
+cd ppt && npm install && node export_icons.js .build/icons
+../.venv/bin/pip install python-pptx
+../.venv/bin/python build_template_deck.py --team-id <ID> --live-url <https://...> [--repo-url <url>]
+```

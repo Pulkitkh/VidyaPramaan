@@ -52,8 +52,26 @@ await page.getByRole("tab", { name: /Rejected/ }).click();
 await shot("04_upload_rejected_rows", { fullPage: true });
 await page.getByRole("tab", { name: /Warnings/ }).click();
 await shot("05_upload_warnings");
+// An AICTE officer watches the national dashboard in a separate browser while the college submits.
+const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const watcher = await ctx2.newPage();
+watcher.on("pageerror", (e) => errors.push(String(e)));
+await watcher.goto(`${BASE}/login`);
+await watcher.getByRole("button", { name: /AICTE officer/ }).click();
+await watcher.getByText("State-wise monitoring").waitFor();
+await watcher.getByText("Live", { exact: true }).waitFor();
+const kpi = () => watcher.locator("div.card", { hasText: "Enrolled" }).first().innerText();
+const before = await kpi();
 await page.getByRole("button", { name: /Submit \d+ valid rows/ }).click();
 await page.getByText(/student records submitted/).waitFor({ timeout: 60000 });
+// The watcher must update without a reload (Server-Sent Events).
+const t0 = Date.now();
+while ((await kpi()) === before) {
+  if (Date.now() - t0 > 20000) throw new Error("AICTE dashboard did not update live after the submission");
+  await watcher.waitForTimeout(250);
+}
+console.log("live update reached the AICTE dashboard in", Date.now() - t0, "ms");
+await ctx2.close();
 await page.evaluate(() => window.scrollTo(0, 0));
 await shot("06_upload_committed");
 await page.goto(`${BASE}/institution`);
@@ -97,6 +115,21 @@ await page.getByText(/Tampering detected/).waitFor();
 await shot("18_audit_tampered");
 await page.getByRole("button", { name: /^Restore$/ }).click();
 await page.getByText(/Chain intact/).waitFor();
+
+// Hindi toggle
+await page.goto(`${BASE}/aicte`);
+await page.getByRole("button", { name: "Toggle language" }).click();
+await page.getByText("राष्ट्रीय अवलोकन").first().waitFor();
+await page.getByRole("button", { name: "Toggle language" }).click();
+await page.getByText("National overview").first().waitFor();
+
+// Auditor: can read, cannot act
+await login("Auditor");
+await page.getByText("State-wise monitoring").waitFor();
+if (await page.getByRole("button", { name: /Run national scan|Reset demo/ }).count()) throw new Error("auditor sees action buttons");
+await page.goto(`${BASE}/aicte/review`);
+await page.waitForTimeout(1500);
+if (!page.url().endsWith("/aicte/review")) throw new Error("auditor should be able to read the review queue");
 
 // 4. Verifier asks for consent, student approves, verifier sees only the scoped fields
 const apaar = await (async () => {

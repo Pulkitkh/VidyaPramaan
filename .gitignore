@@ -9,3 +9,4 @@ backend/data/
 *.db-shm
 *.db-wal
 .DS_Store
+ppt/.build/

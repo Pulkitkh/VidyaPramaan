@@ -1,0 +1,15 @@
+# Render Blueprint: one free web service built from the Dockerfile.
+# New → Blueprint → select this repository → Apply.
+services:
+  - type: web
+    name: vidya-pramaan-sih26263
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/meta
+    autoDeploy: true
+    envVars:
+      - key: VP_SECRET_KEY
+        generateValue: true
+      - key: VP_DEMO_MODE
+        value: "1"

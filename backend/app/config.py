@@ -14,7 +14,10 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 SAMPLE_CSV = Path(os.getenv("VP_SAMPLE_CSV", BASE_DIR.parent / "sample-data" / "demo_upload_btech_cse.csv"))
 DATABASE_URL = os.getenv("VP_DATABASE_URL", f"sqlite:///{DATA_DIR / 'vidyapramaan.db'}")
 SECRET_KEY = os.getenv("VP_SECRET_KEY", "dev-only-secret-change-me")
-PUBLIC_BASE_URL = os.getenv("VP_PUBLIC_BASE_URL", "http://localhost:8000")
+# Public address printed in certificate QR codes. Hosting platforms expose it automatically.
+PUBLIC_BASE_URL = (os.getenv("VP_PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL_URL")
+                   or (f"https://{os.environ['SPACE_HOST']}" if os.getenv("SPACE_HOST") else "")
+                   or "http://localhost:8000").rstrip("/")
 APAAR_REGISTRY = os.getenv("VP_APAAR_REGISTRY", "mock")  # mock | digilocker
 DEMO_MODE = os.getenv("VP_DEMO_MODE", "1") == "1"
 
