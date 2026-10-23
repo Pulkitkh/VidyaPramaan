@@ -307,3 +307,13 @@ def test_excel_template_has_dropdowns_and_report_has_diversity(aicte):
     token = aicte["Authorization"].split()[1]
     rep = load_workbook(_io.BytesIO(client.get("/api/reports/state-summary.xlsx", params={"token": token}).content))
     assert {"State summary", "Findings by rule", "Diversity"} <= set(rep.sheetnames)
+
+
+def test_spa_route_cannot_read_files_outside_the_build():
+    from app.main import DIST
+    if not DIST.exists():
+        pytest.skip("frontend not built")
+    # frontend/dist -> ../../backend/app/config.py always exists, so an escape would be visible.
+    for prefix in ("%2e%2e/%2e%2e/", "..%2f..%2f", "%2e%2e%2f%2e%2e%2f"):
+        r = client.get(f"/{prefix}backend/app/config.py")
+        assert b"SUPERNUMERARY_CAPS" not in r.content, prefix

@@ -740,7 +740,8 @@ if DIST.exists():
     def spa(path: str):
         if path.startswith("api/"):
             raise HTTPException(404)
-        f = DIST / path
-        if path and f.is_file():
+        # Resolve and confine to the build folder so "../" cannot reach the data directory.
+        f = (DIST / path).resolve()
+        if path and f.is_file() and f.is_relative_to(DIST.resolve()):
             return FileResponse(f)
         return HTMLResponse((DIST / "index.html").read_text())

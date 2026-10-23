@@ -7,6 +7,7 @@ Anyone holding the issuer public key can verify either one offline.
 """
 import base64
 import json
+import os
 import uuid
 from datetime import datetime
 
@@ -35,6 +36,12 @@ def _canonical(obj) -> bytes:
 
 
 def _load_key() -> Ed25519PrivateKey:
+    # In deployment the key comes from the environment (PEM text or base64 of the PEM),
+    # so it is never baked into the image and stays the same across redeploys.
+    env_key = os.getenv("VP_ISSUER_KEY", "").strip()
+    if env_key:
+        pem = env_key.encode() if env_key.startswith("-----") else base64.b64decode(env_key)
+        return serialization.load_pem_private_key(pem, password=None)
     if KEY_PATH.exists():
         return serialization.load_pem_private_key(KEY_PATH.read_bytes(), password=None)
     key = Ed25519PrivateKey.generate()
