@@ -35,7 +35,7 @@ def create_batch(db: Session, inst: Institution, rows: list[dict], filename: str
 
 def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
     inst = db.get(Institution, batch.institution_id)
-    created = updated = 0
+    created = updated = unchanged = 0
     for rr in batch.row_results:
         if rr["status"] == "ERROR":
             for f in rr["findings"]:
@@ -48,7 +48,15 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
             continue
         d = rr["data"]
         if rr["is_update"]:
-            updated += 1
+            enrol = db.get(Enrolment, rr["update_enrolment_id"])
+            if enrol is not None:
+                changed = _apply_update(enrol, d)
+                if changed:
+                    updated += 1
+                    audit.record(db, user.username, user.role, "RECORD_UPDATED", "enrolment", enrol.id,
+                                 {"fields": changed, "batch": batch.id})
+                else:
+                    unchanged += 1
             continue
         student = None
         if d["apaar_id"]:
@@ -84,11 +92,38 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
     batch.committed_rows = created + updated
     db.flush()
     audit.record(db, user.username, user.role, "UPLOAD_COMMITTED", "upload_batch", batch.id,
-                 {"created": created, "updated": updated, "rejected": batch.error_rows})
+                 {"created": created, "updated": updated, "unchanged": unchanged, "rejected": batch.error_rows})
     scan = run_scan(db)
     score_institutions(db)
     audit.record(db, "system", "SYSTEM", "NATIONAL_SCAN", "dataset", "national", scan)
-    return {"created": created, "updated": updated, "rejected": batch.error_rows, "scan": scan}
+    return {"created": created, "updated": updated, "unchanged": unchanged, "rejected": batch.error_rows,
+            "scan": scan}
+
+
+UPDATABLE_STUDENT = ("name", "gender", "category", "father_name", "nationality", "fn_status", "oci_status",
+                     "oci_card_no", "passport_no", "nri_status", "nri_country", "pwd")
+
+
+def _apply_update(enrol: Enrolment, d: dict) -> list[str]:
+    """Apply corrected student details. Quota and seat type are not changed by re-upload."""
+    changed = []
+    s = enrol.student
+    for field in UPDATABLE_STUDENT:
+        new = d[field] if isinstance(d[field], bool) else (d[field] or None)
+        if field in ("name", "gender", "category", "father_name", "nationality"):
+            new = new or getattr(s, field)
+        if getattr(s, field) != new:
+            setattr(s, field, new)
+            changed.append(field)
+    dob = _date(d["dob"])
+    if dob and dob != s.dob:
+        s.dob = dob
+        changed.append("dob")
+    adm = _date(d["admission_date"])
+    if adm and adm != enrol.admission_date:
+        enrol.admission_date = adm
+        changed.append("admission_date")
+    return changed
 
 
 def _parse(v: str) -> date:

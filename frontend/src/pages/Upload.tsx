@@ -6,6 +6,7 @@ import { api, fmt, type Batch, type RowResult } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
 type Filter = "all" | "ERROR" | "WARNING" | "OK";
+const ROW_LIMIT = 300; // large files: show the first rows per filter; the full result stays on the server
 
 function maskApaar(a: unknown): string {
   const s = String(a ?? "");
@@ -47,7 +48,8 @@ export default function UploadPage() {
     catch (e) { setError((e as Error).message); } finally { setBusy(null); }
   };
 
-  const rows = useMemo(() => (batch?.rows ?? []).filter((r) => filter === "all" || r.status === filter), [batch, filter]);
+  const filtered = useMemo(() => (batch?.rows ?? []).filter((r) => filter === "all" || r.status === filter), [batch, filter]);
+  const rows = filtered.slice(0, ROW_LIMIT);
   const accepted = batch ? batch.total_rows - batch.error_rows : 0;
   const codeCounts = useMemo(() => {
     const m: Record<string, { n: number; sev: RowResult["findings"][number]["severity"]; title: string }> = {};
@@ -58,20 +60,23 @@ export default function UploadPage() {
   return (
     <>
       <PageHeader title={t("Upload students")} subtitle="Upload after admissions close. Every row is checked against APAAR, your approved intake and all other institutions before anything is stored."
-        actions={<a className="btn-ghost" href="/api/institution/template.csv"><Download size={15} /> CSV template</a>} />
+        actions={<>
+          <a className="btn-ghost" href="/api/institution/template.xlsx"><Download size={15} /> Excel template</a>
+          <a className="btn-ghost" href="/api/institution/template.csv"><Download size={15} /> CSV template</a>
+        </>} />
 
       {!batch && (
         <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) send(f); }}
           className={`card flex flex-col items-center justify-center gap-3 border-2 border-dashed px-6 py-14 text-center ${drag ? "border-navy-600 bg-navy-50" : "border-line"}`}>
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy-50 text-navy-700">{busy ? <Loader2 className="animate-spin" /> : <FileUp />}</div>
-          <div className="text-base font-semibold">{busy ? "Validating against APAAR registry and national records…" : "Drop your admissions CSV here"}</div>
+          <div className="text-base font-semibold">{busy ? "Validating against APAAR registry and national records…" : "Drop your admissions file here (Excel or CSV)"}</div>
           <p className="max-w-lg text-sm text-ink-2">One row per student, keyed on APAAR ID. Students who declined APAAR, and FN/OCI students, are accepted with a provisional ID.</p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <button className="btn-primary" onClick={() => fileRef.current?.click()} disabled={!!busy}>Choose file</button>
             <button className="btn-accent" onClick={useSample} disabled={!!busy}><Sparkles size={15} /> Try the demo file (B.Tech CSE, 77 rows)</button>
           </div>
-          <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => e.target.files?.[0] && send(e.target.files[0])} />
+          <input ref={fileRef} type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(e) => e.target.files?.[0] && send(e.target.files[0])} />
         </div>
       )}
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
@@ -99,7 +104,11 @@ export default function UploadPage() {
             <div className="mt-5 flex flex-wrap items-start gap-3 rounded-xl border border-[#bfe5bf] bg-[#e8f6e8] px-5 py-4">
               <CheckCircle2 className="mt-0.5 text-status-goodtext" />
               <div className="flex-1 text-sm">
-                <div className="font-semibold">{committed.created} student records submitted to the AICTE central repository.</div>
+                <div className="font-semibold">
+                  {committed.created} new student records submitted to the AICTE central repository
+                  {(committed.updated ?? 0) > 0 && <>, {committed.updated} existing records updated</>}
+                  {(committed.unchanged ?? 0) > 0 && <>, {committed.unchanged} already up to date</>}.
+                </div>
                 <div className="text-ink-2">{committed.error_rows} rejected rows were not stored. The national scan re-ran and now shows {fmt.int(committed.scan?.findings)} open items nationwide; AICTE's dashboard updated live.</div>
               </div>
               <Link className="btn-ghost" to="/institution">View seat ledger</Link>
@@ -148,6 +157,11 @@ export default function UploadPage() {
                   ))}
                 </tbody>
               </table>
+              {filtered.length > rows.length && (
+                <div className="border-t border-line px-5 py-3 text-xs text-ink-2">
+                  Showing the first {rows.length} of {filtered.length} rows. Use the filters above to narrow down; nothing has been dropped.
+                </div>
+              )}
             </div>
           </Card>
         </>

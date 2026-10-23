@@ -138,3 +138,76 @@ def test_reports(aicte):
     assert client.get("/api/reports/excess-intake.csv", params={"token": token}).status_code == 200
     r = client.get("/api/reports/state-summary.xlsx", params={"token": token})
     assert r.status_code == 200 and r.content[:2] == b"PK"
+
+
+def test_reupload_after_commit_is_update_not_new_admission(inst, batch):
+    with open(os.environ["VP_SAMPLE_CSV"], "rb") as fh:
+        again = client.post("/api/institution/uploads", headers=inst, files={"file": ("cse.csv", fh, "text/csv")}).json()
+    before = {r["row_no"]: {f["code"] for f in r["findings"]} for r in batch["rows"] if r["status"] != "ERROR"}
+    for row in again["rows"]:
+        codes_now = {f["code"] for f in row["findings"]}
+        if row["row_no"] in before:
+            assert "UPD-001" in codes_now and row["is_update"]
+            # re-uploading must not invent new problems (no seat overflow, no self-match)
+            assert codes_now - {"UPD-001"} <= before[row["row_no"]], (row["row_no"], codes_now)
+    # the rows that were over intake the first time are still over intake
+    assert [f["evidence"]["seat_number"] for r in again["rows"] for f in r["findings"] if f["code"] == "INT-001"] == [61, 62, 63]
+
+
+def test_reupload_applies_corrections(inst):
+    import csv as _csv
+    import io as _io
+    rows = list(_csv.DictReader(open(os.environ["VP_SAMPLE_CSV"])))
+    target = next(r for r in rows if r["apaar_consent"] == "REFUSED")  # no APAAR: matched by roll number
+    target["category"] = "SC" if target["category"] != "SC" else "OBC"
+    buf = _io.StringIO()
+    w = _csv.DictWriter(buf, fieldnames=list(rows[0]))
+    w.writeheader()
+    w.writerow(target)
+    b = client.post("/api/institution/uploads", headers=inst,
+                    files={"file": ("fix.csv", buf.getvalue().encode(), "text/csv")}).json()
+    assert [f["code"] for f in b["rows"][0]["findings"]] == ["APR-005", "UPD-001"]
+    res = client.post(f"/api/institution/uploads/{b['id']}/commit", headers=inst).json()
+    assert res["created"] == 0 and res["updated"] == 1
+    students = client.get(f"/api/institution/students?q={target['roll_no']}", headers=inst).json()
+    assert students[0]["student"]["category"] == target["category"]
+
+
+def test_excel_upload_matches_csv(inst):
+    import csv as _csv
+    import io as _io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    for r in _csv.reader(open(os.environ["VP_SAMPLE_CSV"])):
+        ws.append([int(v) if v.isdigit() and len(v) == 12 else v for v in r])  # Excel turns IDs into numbers
+    buf = _io.BytesIO()
+    wb.save(buf)
+    x = client.post("/api/institution/uploads", headers=inst, files={"file": ("cse.xlsx", buf.getvalue(), "application/vnd.ms-excel")})
+    assert x.status_code == 200, x.text
+    assert x.json()["total_rows"] == 77
+    t = client.get("/api/institution/template.xlsx")
+    assert t.status_code == 200 and t.content[:2] == b"PK"
+
+
+def test_demo_reset_restores_empty_programme(aicte, inst):
+    r = client.post("/api/demo/reset", headers=aicte)
+    assert r.status_code == 200 and r.json()["removed_enrolments"] == 65
+    cse = next(p for p in client.get("/api/institution/overview", headers=inst).json()["ledger"] if p["code"] == "BTCSE")
+    assert cse["within_intake"] == 0
+    assert client.get("/api/audit/verify", headers=aicte).json()["valid"] is True
+    assert client.post("/api/demo/reset", headers=inst).status_code == 403
+
+
+def test_expired_token_rejected(monkeypatch):
+    from app import auth
+    monkeypatch.setattr(auth, "TOKEN_TTL_SECONDS", -1)
+    stale = auth.issue_token(auth.User("aicte.admin", "AICTE_ADMIN", "x"))
+    r = client.get("/api/dashboard/national", headers={"Authorization": f"Bearer {stale}"})
+    assert r.status_code == 401 and "expired" in r.json()["detail"]
+
+
+def test_exports_neutralise_formulas():
+    from app.main import _cell
+    assert _cell("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")"
+    assert _cell("Pune") == "Pune" and _cell(5) == 5

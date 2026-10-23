@@ -39,7 +39,7 @@ RULES: dict[str, tuple[str, str]] = {
     "DUP-001": ("ERROR", "Duplicate record within this upload"),
     "DUP-002": ("WARNING", "Already actively enrolled at another institution"),
     "DUP-003": ("WARNING", "Possible same person under a different APAAR ID"),
-    "UPD-001": ("INFO", "Existing record will be updated"),
+    "UPD-001": ("INFO", "Already submitted; details will be updated"),
     "INT-001": ("ERROR", "Admission exceeds approved intake"),
     "INT-002": ("ERROR", "Supernumerary quota exceeded"),
     "CON-001": ("ERROR", "Foreign National without passport number"),
@@ -105,6 +105,29 @@ def parse_csv(content: bytes) -> list[dict]:
     return [{(k or "").strip().lower(): (v or "").strip() for k, v in row.items()} for row in reader]
 
 
+def parse_xlsx(content: bytes) -> list[dict]:
+    """First worksheet, first row as header. Excel dates and numbers are converted to text."""
+    from openpyxl import load_workbook
+    ws = load_workbook(io.BytesIO(content), read_only=True, data_only=True).worksheets[0]
+    it = ws.iter_rows(values_only=True)
+    header = [str(h or "").strip().lower() for h in next(it, [])]
+    out = []
+    for values in it:
+        if values is None or all(v in (None, "") for v in values):
+            continue
+        row = {}
+        for h, v in zip(header, values):
+            if isinstance(v, datetime):
+                v = v.date().isoformat()
+            elif isinstance(v, date):
+                v = v.isoformat()
+            elif isinstance(v, float) and v.is_integer():
+                v = int(v)
+            row[h] = "" if v is None else str(v).strip()
+        out.append(row)
+    return out
+
+
 def normalise(raw: dict) -> dict:
     r = {c: (raw.get(c) or "").strip() for c in COLUMNS}
     r["apaar_id"] = r["apaar_id"].replace(" ", "").replace("-", "")
@@ -162,6 +185,11 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
                             .where(Student.apaar_id.in_(apaars), Enrolment.status == "ACTIVE")):
             existing[e.student.apaar_id].append(e)
 
+    # This institution's committed enrolments by roll number, so re-uploads of students without an
+    # APAAR ID (opt-out, FN/OCI) are recognised as updates rather than new admissions.
+    own_by_roll = {e.roll_no: e for e in db.scalars(
+        select(Enrolment).where(Enrolment.institution_id == institution.id, Enrolment.status == "ACTIVE"))}
+
     dobs = {d for d in (_date(r["dob"]) for r in rows) if d}
     by_dob: dict[date, list[Student]] = defaultdict(list)
     if dobs:
@@ -197,6 +225,7 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
         # --- APAAR identity ---------------------------------------------------
         apaar = r["apaar_id"]
         is_update = False
+        update_of: Enrolment | None = None
         if not apaar:
             if r["fn_status"] or r["oci_status"]:
                 f.append(finding("APR-007", "APAAR needs Aadhaar-based KYC, so it is optional for "
@@ -231,8 +260,7 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
             for e in existing.get(apaar, []):
                 if e.institution_id == institution.id:
                     if prog and e.programme_id == prog.id:
-                        is_update = True
-                        f.append(finding("UPD-001", f"Existing enrolment {e.roll_no} will be updated"))
+                        is_update, update_of = True, e
                 else:
                     f.append(finding(
                         "DUP-002", f"Active enrolment at {e.institution.name} ({e.institution.aicte_pid}), "
@@ -246,11 +274,25 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
                                  first_row=seen_roll[r["roll_no"]]))
             else:
                 seen_roll[r["roll_no"]] = row_no
+            own = own_by_roll.get(r["roll_no"])
+            if own and not is_update and prog and own.programme_id == prog.id:
+                if (own.student.apaar_id or "") == apaar:
+                    is_update, update_of = True, own
+                else:
+                    holder = mask(own.student.apaar_id) if own.student.apaar_id else own.student.provisional_id
+                    f.append(finding("DUP-001", f"Roll number {r['roll_no']} already belongs to "
+                                     f"{own.student.name} ({holder})", existing_enrolment=own.id))
+        if update_of is not None:
+            ignored = "; quota / seat changes need AICTE approval and are not applied" \
+                if r["quota"] and r["quota"] != update_of.quota else ""
+            f.append(finding("UPD-001", f"Already submitted as {update_of.roll_no}; student details will "
+                             f"be updated{ignored}", enrolment_id=update_of.id))
 
         # --- probabilistic identity match (same person, different APAAR) ------
         if dob and r["name"]:
             for s in by_dob.get(dob, []):
-                if s.apaar_id == apaar or s.gender != r["gender"]:
+                if (update_of is not None and s.id == update_of.student_id) or \
+                        (apaar and s.apaar_id == apaar) or s.gender != r["gender"]:
                     continue
                 ns = fuzz.token_sort_ratio(norm_name(r["name"]), norm_name(s.name))
                 fs = fuzz.token_sort_ratio(norm_name(r["father_name"]), norm_name(s.father_name))
@@ -322,6 +364,7 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
         results.append({
             "row_no": row_no, "status": status, "data": {**r, "seat_type": seat_type,
                                                          "supernumerary_type": sn_type},
-            "programme_id": prog.id if prog else None, "is_update": is_update, "findings": f,
+            "programme_id": prog.id if prog else None, "is_update": is_update,
+            "update_enrolment_id": update_of.id if update_of is not None else None, "findings": f,
         })
     return results

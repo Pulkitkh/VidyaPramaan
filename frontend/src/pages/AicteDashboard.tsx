@@ -1,4 +1,4 @@
-import { AlertOctagon, Building2, Fingerprint, GraduationCap, ListChecks, RefreshCw, ShieldAlert, Users } from "lucide-react";
+import { AlertOctagon, Building2, Fingerprint, GraduationCap, ListChecks, RefreshCw, RotateCcw, ShieldAlert, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -42,6 +42,7 @@ export default function AicteDashboard() {
   const nav = useNavigate();
   const { data, error, reload } = useApi<Dashboard>("/api/dashboard/national");
   const [scanning, setScanning] = useState(false);
+  const meta = useApi<{ demo_mode: boolean }>("/api/meta");
   useLiveEvents((e) => { if (e.type === "batch_committed" || e.type === "scan") reload(); });
 
   if (error) return <ErrorNote message={error} />;
@@ -50,6 +51,12 @@ export default function AicteDashboard() {
   const findings = Object.entries(data.findings_by_rule).map(([code, value]) => ({ code, label: RULE_LABEL[code] ?? code, value }))
     .sort((a, b) => b.value - a.value);
   const sn = Object.entries(data.supernumerary_by_type).map(([code, value]) => ({ label: code.replace("_", " / ").replace("_", " / "), value }));
+
+  const resetDemo = async () => {
+    if (!window.confirm("Remove everything institutions submitted through the portal, so the demo can be run again? The audit trail is kept.")) return;
+    setScanning(true);
+    try { await api("/api/demo/reset", { method: "POST" }); await reload(); } finally { setScanning(false); }
+  };
 
   const rescan = async () => {
     setScanning(true);
@@ -60,11 +67,16 @@ export default function AicteDashboard() {
     <>
       <PageHeader title={t("National overview")}
         subtitle={<>Academic year 2026-27 · {fmt.int(k.institutions)} AICTE-approved institutions · updates live as institutions submit</>}
-        actions={user?.role === "AICTE_ADMIN" && (
+        actions={user?.role === "AICTE_ADMIN" && (<>
+          {meta.data?.demo_mode && (
+            <button className="btn-ghost" onClick={resetDemo} disabled={scanning} title="Demo mode only">
+              <RotateCcw size={15} /> Reset demo
+            </button>
+          )}
           <button className="btn-ghost" onClick={rescan} disabled={scanning}>
             <RefreshCw size={15} className={scanning ? "animate-spin" : ""} /> Run national scan
           </button>
-        )} />
+        </>)} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label={t("Approved intake")} value={fmt.int(k.approved_intake)} icon={<GraduationCap size={14} />}

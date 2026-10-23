@@ -24,7 +24,7 @@ from .db import Base, engine, get_db
 from .models import (AuditEvent, ConsentRequest, Credential, Enrolment, Finding, Institution, Programme,
                      Student, UploadBatch, VerificationLog, now)
 from .scan import run_scan
-from .validation import COLUMNS, RULES, parse_csv
+from .validation import COLUMNS, ENUMS, RULES, parse_csv, parse_xlsx
 
 Base.metadata.create_all(engine)
 app = FastAPI(title="Vidya Pramaan API", version="0.1.0",
@@ -74,7 +74,7 @@ def meta():
     return {"rules": {k: {"severity": v[0], "title": v[1]} for k, v in RULES.items()},
             "ruleset_version": config.RULESET_VERSION, "supernumerary_caps": config.SUPERNUMERARY_CAPS,
             "admission_window": config.ADMISSION_WINDOW, "academic_year": config.CURRENT_ACADEMIC_YEAR,
-            "apaar_registry": config.APAAR_REGISTRY, "columns": COLUMNS}
+            "apaar_registry": config.APAAR_REGISTRY, "columns": COLUMNS, "demo_mode": config.DEMO_MODE}
 
 
 @app.get("/api/events")
@@ -258,6 +258,35 @@ def template():
                     headers={"Content-Disposition": "attachment; filename=student_upload_template.csv"})
 
 
+@app.get("/api/institution/template.xlsx")
+def template_xlsx():
+    """Excel template with drop-down lists for coded columns, for institutions that work in Excel."""
+    from openpyxl.worksheet.datavalidation import DataValidation
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Students"
+    ws.append(COLUMNS)
+    ws.append(["123456789012", "GIVEN", "0001BTCSE26001", "Student Name", "2008-01-31", "F", "GEN", "Father Name",
+               "BTCSE", 1, "REGULAR", "STATE_CAP", "Indian", "N", "N", "", "", "N", "", "N", "2026-08-01"])
+    yes_no = {"fn_status", "oci_status", "nri_status", "pwd"}
+    for idx, col in enumerate(COLUMNS, start=1):
+        letter = ws.cell(row=1, column=idx).column_letter
+        ws.column_dimensions[letter].width = max(12, len(col) + 2)
+        choices = sorted(ENUMS[col]) if col in ENUMS else ["Y", "N"] if col in yes_no else None
+        if choices:
+            dv = DataValidation(type="list", formula1='"' + ",".join(choices) + '"', allow_blank=True)
+            ws.add_data_validation(dv)
+            dv.add(f"{letter}2:{letter}5000")
+        if col in ("apaar_id", "roll_no", "dob", "admission_date"):
+            for r in range(2, 5001):
+                ws.cell(row=r, column=idx).number_format = "@"  # keep IDs and dates as text
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": "attachment; filename=student_upload_template.xlsx"})
+
+
 @app.get("/api/institution/sample.csv")
 def sample_csv():
     return FileResponse(config.SAMPLE_CSV, media_type="text/csv", filename=config.SAMPLE_CSV.name)
@@ -269,10 +298,13 @@ async def upload(file: UploadFile = File(...), db: Session = Depends(get_db),
     content = await file.read()
     if len(content) > 10_000_000:
         raise HTTPException(413, "File too large for synchronous validation; use the bulk API")
+    name = (file.filename or "").lower()
     try:
-        rows = parse_csv(content)
+        rows = parse_xlsx(content) if name.endswith((".xlsx", ".xlsm")) else parse_csv(content)
     except UnicodeDecodeError:
-        raise HTTPException(400, "File must be UTF-8 CSV")
+        raise HTTPException(400, "CSV files must be UTF-8. Excel users can upload the .xlsx directly.")
+    except Exception:
+        raise HTTPException(400, "Could not read the file. Use the CSV or Excel template.")
     if not rows:
         raise HTTPException(400, "No rows found")
     batch = services.create_batch(db, _my_inst(db, user), rows, file.filename or "upload.csv", user)
@@ -607,6 +639,36 @@ def restore(db: Session = Depends(get_db), _: User = Depends(require("AICTE_ADMI
     return {"restored": ev.id}
 
 
+@app.post("/api/demo/reset")
+def demo_reset(db: Session = Depends(get_db), user: User = Depends(require("AICTE_ADMIN"))):
+    """DEMO ONLY: remove everything submitted through the portal so the walkthrough can be repeated.
+
+    The audit trail is append-only, so it is kept and the reset itself is recorded in it.
+    """
+    if not config.DEMO_MODE:
+        raise HTTPException(404)
+    from sqlalchemy import delete
+    enrol_ids = list(db.scalars(select(Enrolment.id).where(Enrolment.batch_id.is_not(None))))
+    student_ids = set(db.scalars(select(Enrolment.student_id).where(Enrolment.id.in_(enrol_ids))))
+    db.execute(delete(Credential).where(Credential.enrolment_id.in_(enrol_ids)))
+    db.execute(delete(Finding).where(or_(Finding.batch_id.is_not(None), Finding.enrolment_id.in_(enrol_ids))))
+    db.execute(delete(Enrolment).where(Enrolment.id.in_(enrol_ids)))
+    still_enrolled = set(db.scalars(select(Enrolment.student_id).where(Enrolment.student_id.in_(student_ids))))
+    orphans = list(student_ids - still_enrolled)
+    db.execute(delete(VerificationLog).where(VerificationLog.student_id.in_(orphans)))
+    db.execute(delete(ConsentRequest).where(ConsentRequest.student_id.in_(orphans)))
+    db.execute(delete(Credential).where(Credential.student_id.in_(orphans)))
+    db.execute(delete(Student).where(Student.id.in_(orphans)))
+    batches = db.execute(delete(UploadBatch)).rowcount
+    result = run_scan(db)
+    score_institutions(db)
+    audit.record(db, user.username, user.role, "DEMO_RESET", "dataset", "national",
+                 {"removed_enrolments": len(enrol_ids), "removed_batches": batches})
+    db.commit()
+    events.publish("scan", result)
+    return {"removed_enrolments": len(enrol_ids), "removed_students": len(orphans), "removed_batches": batches}
+
+
 # --------------------------------------------------------------------------- reports
 @app.get("/api/reports/excess-intake.csv")
 def report_excess(db: Session = Depends(get_db), token: str = ""):
@@ -618,8 +680,8 @@ def report_excess(db: Session = Depends(get_db), token: str = ""):
     for inst in db.scalars(select(Institution).order_by(Institution.state)):
         for p in services.programme_ledger(db, inst.id):
             if p["excess"] > 0:
-                w.writerow([inst.aicte_pid, inst.name, inst.state, p["name"], p["approved_intake"],
-                            p["within_intake"], p["excess"]])
+                w.writerow([_cell(x) for x in (inst.aicte_pid, inst.name, inst.state, p["name"],
+                                                p["approved_intake"], p["within_intake"], p["excess"])])
     return Response(buf.getvalue(), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=excess_intake_report.csv"})
 
@@ -634,7 +696,7 @@ def report_states(db: Session = Depends(get_db), token: str = ""):
     ws.append(["State", "Institutions", "Approved intake", "Enrolled (within intake)", "Utilisation",
                "Excess admissions", "High-risk institutions", "Average risk"])
     for s in d["states"]:
-        ws.append([s["state"], s["institutions"], s["intake"], s["enrolled"], s["utilisation"], s["excess"],
+        ws.append([_cell(s["state"]), s["institutions"], s["intake"], s["enrolled"], s["utilisation"], s["excess"],
                    s["high_risk"], s["avg_risk"]])
     ws2 = wb.create_sheet("Findings by rule")
     ws2.append(["Rule", "Title", "Severity", "Open findings"])
@@ -649,6 +711,11 @@ def report_states(db: Session = Depends(get_db), token: str = ""):
     wb.save(buf)
     return Response(buf.getvalue(), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": "attachment; filename=state_summary.xlsx"})
+
+
+def _cell(v):
+    """Neutralise spreadsheet formulas in exported text (CSV / Excel injection)."""
+    return "'" + v if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") else v
 
 
 def _require_token(token: str, roles) -> User:

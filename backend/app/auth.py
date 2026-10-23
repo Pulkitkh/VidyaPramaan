@@ -7,13 +7,15 @@ import base64
 import hashlib
 import hmac
 import json
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, fields
 
 from fastapi import Depends, Header, HTTPException
 
 from .config import SECRET_KEY
 
 ROLES = ("AICTE_ADMIN", "INSTITUTION_ADMIN", "VERIFIER", "STUDENT", "AUDITOR")
+TOKEN_TTL_SECONDS = 8 * 3600
 
 
 @dataclass
@@ -27,7 +29,8 @@ class User:
 
 
 def issue_token(user: User) -> str:
-    payload = base64.urlsafe_b64encode(json.dumps(user.__dict__).encode()).decode()
+    claims = {**user.__dict__, "exp": int(time.time()) + TOKEN_TTL_SECONDS}
+    payload = base64.urlsafe_b64encode(json.dumps(claims).encode()).decode()
     sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
     return f"{payload}.{sig}"
 
@@ -40,7 +43,10 @@ def parse_token(token: str) -> User:
     expected = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(sig, expected):
         raise HTTPException(401, "Invalid token")
-    return User(**json.loads(base64.urlsafe_b64decode(payload)))
+    claims = json.loads(base64.urlsafe_b64decode(payload))
+    if claims.get("exp", 0) < time.time():
+        raise HTTPException(401, "Session expired, please sign in again")
+    return User(**{f.name: claims.get(f.name) for f in fields(User)})
 
 
 def current_user(authorization: str | None = Header(default=None)) -> User:

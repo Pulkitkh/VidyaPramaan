@@ -40,6 +40,8 @@ export interface Batch {
   committed_rows: number;
   rows?: RowResult[];
   created?: number;
+  updated?: number;
+  unchanged?: number;
   scan?: { findings: number; by_rule: Record<string, number> };
 }
 
@@ -119,6 +121,10 @@ export async function api<T = unknown>(path: string, opts: RequestInit & { json?
     body = JSON.stringify(opts.json);
   }
   const res = await fetch(path, { ...opts, headers, body });
+  if (res.status === 401 && token && !path.startsWith("/api/auth/")) {
+    storeSession(null, null); // expired or invalid session: back to sign-in
+    if (window.location.pathname !== "/login") window.location.assign("/login");
+  }
   if (!res.ok) {
     let msg = res.statusText;
     try { msg = (await res.json()).detail ?? msg; } catch { /* non-JSON error */ }
