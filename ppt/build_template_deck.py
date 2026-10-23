@@ -163,6 +163,8 @@ def set_runs(shape, txt, size=None, color=None):
             p._p.getparent().remove(p._p)
     for r in first_p.runs[1:]:
         r._r.getparent().remove(r._r)
+    for br in first_p._p.findall(qn("a:br")):  # template titles carry trailing line breaks
+        first_p._p.remove(br)
     keep.text = txt
     if size:
         keep.font.size = Pt(size)
@@ -207,8 +209,10 @@ def slide1(s, team_id, team_name):
 def slide2(s, team_name):
     title = find(s, "Title 1")
     set_runs(title, "VIDYA PRAMAAN", size=30)
-    title.top, title.height = Inches(0.2), Inches(0.6)
-    title.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+    title.top, title.height = Inches(0.3), Inches(0.55)
+    tf = title.text_frame
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_top = tf.margin_bottom = Inches(0)
     text(s, 3.2, 0.8, 6.9, 0.34, "APAAR-linked student data, validation & verification platform for AICTE",
          size=14, color=GREY, align=PP_ALIGN.CENTER)
     remove(find(s, "TextBox 8"))
@@ -282,7 +286,7 @@ def slide3(s, live_url, build):
     write(d.text_frame, "Errors?", size=11, bold=True, color=ORANGE, align=PP_ALIGN.CENTER)
     d.text_frame.margin_left = d.text_frame.margin_right = Inches(0)
     arrow(s, 5.85, 3.41, 5.95, 3.41, color=GREEN)
-    text(s, 5.83, 2.9, 0.4, 0.22, "no", size=11, color=GREEN, bold=True)
+    text(s, 5.58, 3.08, 0.36, 0.22, "no", size=11, color=GREEN, bold=True)
     label_box(s, 5.95, 3.1, 1.0, 0.62, "3  Commit", fill=PALE_GREEN, line=RGBColor(0xBF, 0xE3, 0xC9), color=GREEN, size=12, bold=True)
     arrow(s, 5.15, 3.84, 5.15, 4.12, color=RED)
     text(s, 5.2, 3.84, 0.4, 0.22, "yes", size=11, color=RED, bold=True)
@@ -391,7 +395,7 @@ def slide5(s):
         text(s, x + 0.12, y + 0.7, bw - 0.2, 0.62, t2, size=11, color=INK, anchor=MSO_ANCHOR.TOP)
     y = 4.72
     h1 = picture(s, SHOTS / "25_certificate.png", 7.25, y, 2.5)
-    h2 = picture(s, SHOTS / "23_public_qr_verified.png", 10.13, y, 2.82, crop=(0.17, 0.47, 0.51, 0.22))
+    h2 = picture(s, SHOTS / "23_public_qr_verified.png", 10.13, y, 2.82, crop=(0.17, 0.47, 0.51, 0.255))
     text(s, 7.2, y + h1 + 0.05, 2.7, 0.26, "Certificate: APAAR ID + student ID + QR", size=10.5, color=GREY, align=PP_ALIGN.CENTER)
     text(s, 10.1, y + h2 + 0.05, 2.88, 0.26, "QR scan: signature verified", size=10.5, color=GREY, align=PP_ALIGN.CENTER)
 
