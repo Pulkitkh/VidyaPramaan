@@ -173,7 +173,7 @@ function frameImage(slide, file, x, y, w, aspect = 1.6, name) {
   pres.addSection({ title: "Technical approach" });
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "Technical approach" });
   s.addText("TECHNICAL APPROACH", { placeholder: "kicker" });
-  s.addText("Modular and API-first: every box below is running in the prototype", { placeholder: "title" });
+  s.addText("Modular and API-first: one codebase from demo to production", { placeholder: "title" });
 
   const ax = M, aw = 7.35;
   const rowLabel = (t, y) => s.addText(t, { x: ax, y, w: 1.05, h: 0.62, fontSize: 11, bold: true, color: C.accent6, margin: 0, valign: "middle", isTextBox: true });
@@ -184,26 +184,28 @@ function frameImage(slide, file, x, y, w, aspect = 1.6, name) {
   const bx = ax + 1.1, bw = aw - 1.1;
   // Channels
   rowLabel("Channels", 1.5);
-  ["Institution portal\n(CSV / Excel)", "ERP & university\nREST API", "Student portal\n(DigiLocker-ready)", "Employer / regulator\nverifier"].forEach((t, i) =>
+  ["Institution portal\n(Excel / CSV upload)", "ERP & university\nREST API", "Student portal\n(consent, credentials)", "Employer / regulator\nverifier"].forEach((t, i) =>
     box(t, bx + i * (bw / 4), 1.5, bw / 4 - 0.1, 0.62, C.background2, C.text2));
   // Gateway
   rowLabel("Gateway", 2.4);
-  box("API gateway · OAuth2 / OIDC (AICTE SSO, MFA) · role-based access with institution scope · rate limits", bx, 2.4, bw - 0.1, 0.55, C.text2, C.background1, true);
+  box("Role-based access with institution scoping, session expiry  →  production: AICTE SSO (OIDC + MFA), rate limits", bx, 2.4, bw - 0.1, 0.55, C.text2, C.background1, true);
   // Services
   rowLabel("Services", 3.23);
   const svc = ["Validation engine\n(rules as code)", "APAAR registry adapter\nmock → API Setu", "National scan +\nML risk score", "Consent manager\n+ access log", "Credential issuer\nEd25519 · QR"];
   svc.forEach((t, i) => box(t, bx + i * (bw / 5), 3.23, bw / 5 - 0.1, 0.82, C.background1, C.text1));
   // Data
   rowLabel("Data", 4.33);
-  ["PostgreSQL · encrypted PII,\nrow-level security", "Hash-chained\naudit log", "Live dashboards (SSE)\n& reports (CSV / XLSX)"].forEach((t, i) =>
+  ["SQLite now →\nPostgreSQL, encrypted PII", "Hash-chained\naudit log", "Live dashboards (SSE)\n& reports (CSV / XLSX)"].forEach((t, i) =>
     box(t, bx + i * (bw / 3), 4.33, bw / 3 - 0.1, 0.62, C.background2, C.text2));
   [2.15, 3.0, 4.08].forEach((y) => s.addShape(pres.shapes.LINE, { x: bx + bw / 2 - 0.05, y, w: 0, h: 0.2, line: { color: "898781", width: 1.25, endArrowType: "triangle" } }));
 
-  card(s, ax, 5.25, aw - 0.1, 1.35, { fill: C.background2, line: "D7E2F1" });
+  s.addText("Everything shown runs in the prototype today; text after \u2192 is the production upgrade.",
+    { x: bx, y: 5.0, w: bw - 0.1, h: 0.22, fontSize: 10, italic: true, color: C.accent6, margin: 0, isTextBox: true });
+  card(s, ax, 5.3, aw - 0.1, 1.3, { fill: C.background2, line: "D7E2F1" });
   s.addText([
     { text: "How a submission flows", options: { bold: true, color: C.text2, fontSize: 13, breakLine: true, paraSpaceAfter: 3 } },
     { text: `Upload → 25 rule checks per row (${BENCH.upload_validation_ms} ms for ${BENCH.upload_rows} rows) → valid rows committed, rejected rows returned with reasons → national re-scan across ${BENCH.dataset.enrolments.toLocaleString("en-IN")} enrolments (${BENCH.national_scan_seconds} s) → risk scores refreshed → AICTE dashboard updates live`, options: {} },
-  ], { x: ax + 0.18, y: 5.35, w: aw - 0.45, h: 1.2, fontSize: 12.5, color: C.text1, margin: 0, valign: "top", isTextBox: true });
+  ], { x: ax + 0.18, y: 5.4, w: aw - 0.45, h: 1.15, fontSize: 12.5, color: C.text1, margin: 0, valign: "top", isTextBox: true });
 
   const rx = 8.15, rw = W - M - rx;
   s.addText("Stack", { x: rx, y: 1.45, w: rw, h: 0.3, fontSize: 13, bold: true, color: C.text2, margin: 0, isTextBox: true });
@@ -237,7 +239,7 @@ function frameImage(slide, file, x, y, w, aspect = 1.6, name) {
     s.addText(v, { x: x + 0.15, y: y + 0.12, w: sw - 0.3, h: 0.62, fontSize: 30, bold: true, color: C.text2, margin: 0, valign: "middle", isTextBox: true });
     s.addText(l, { x: x + 0.15, y: y + 0.78, w: sw - 0.3, h: 0.56, fontSize: 12, color: C.text1, margin: 0, valign: "top", isTextBox: true });
   });
-  s.addText("Benchmark on synthetic data with planted anomalies (docs/benchmark.json in the repo). Real data will be noisier; thresholds and rules are configuration, and every flag goes to a human reviewer.",
+  s.addText("Synthetic data with planted anomalies (docs/benchmark.json). Also covered by 16 automated API tests and a repeatable browser walkthrough of every role. Real data will be noisier; every flag goes to a human reviewer.",
     { x: M, y: 4.62, w: 3 * sw + 0.28, h: 0.62, fontSize: 10.5, italic: true, color: C.accent6, margin: 0, valign: "top", isTextBox: true });
   card(s, M, 5.35, 3 * sw + 0.28, 1.5, { fill: C.background1, line: "E1E0D9" });
   s.addText([
@@ -255,7 +257,7 @@ function frameImage(slide, file, x, y, w, aspect = 1.6, name) {
     ["Students without APAAR (opt-out, FN / OCI)", "Provisional AICTE ID with an INFO note; never rejected"],
     ["Privacy: DPDP Act 2023 & Rules 2025", "Consent ledger, purpose-bound access, masked IDs, access log the student can see"],
     ["False positives hurting institutions", "Flags are review items; an officer decides; every decision is audited"],
-    ["Low digital maturity in small colleges", "Excel template, plain-language errors, Hindi UI, works on mobile"],
+    ["Low digital maturity in small colleges", "Excel template with drop-downs, plain-language errors, English / Hindi toggle, works on mobile"],
     ["National scale", "Stateless API, partitioned PostgreSQL, async bulk jobs, read replicas for dashboards"],
   ];
   s.addTable(rows.map((r, i) => i === 0 ? r : r.map((c, j) => ({ text: c, options: { fontSize: 11.5, bold: j === 0, color: HEX.dk1, fill: { color: i % 2 ? "FFFFFF" : "F5F8FC" } } }))),

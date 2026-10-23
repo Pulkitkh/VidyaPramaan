@@ -15,7 +15,7 @@ Institution → student data upload → APAAR validation → data verification �
 
 | PS requirement | Where it lives in the prototype |
 |---|---|
-| 1. Secure upload/update API keyed on APAAR | CSV upload screen + `POST /api/v1/students:validate` and `:submit` (JSON) |
+| 1. Secure upload/update API keyed on APAAR | Excel / CSV upload screen (re-uploads update existing records) + `POST /api/v1/students:validate` and `:submit` (JSON) |
 | 2. Intake, enrolment, supernumerary, NRI, OCI, FN fields | Upload template columns; per-programme seat ledger with supernumerary caps |
 | 3. Automated validation (duplicates, invalid/missing APAAR, excess intake, inconsistencies, cross-institution duplicates) | `backend/app/validation.py` (25 rule codes) + `backend/app/scan.py` (national scan) |
 | 4. Real-time dashboards for AICTE and institutions | AICTE national overview (live via Server-Sent Events), institution overview |
@@ -47,6 +47,11 @@ RESEED=1 ./run.sh        # start again from a fresh dataset
 
 Open http://localhost:8000 and choose a demo user. API reference: http://localhost:8000/docs.
 
+**Demo day tips**
+- To repeat the walkthrough, sign in as the AICTE officer and press **Reset demo** on the national overview. It removes everything submitted through the portal; the audit trail is kept and records the reset.
+- To let judges scan the certificate QR with a phone, start the server with the laptop's address so the QR points to it, for example `VP_PUBLIC_BASE_URL=http://192.168.1.20:8000 ./run.sh`, and keep the phone on the same Wi-Fi.
+- Sessions expire after 8 hours; sign in again if a screen asks you to.
+
 Manual steps:
 
 ```bash
@@ -59,7 +64,7 @@ For frontend development, run `npm run dev` in `frontend/` (it proxies `/api` to
 
 ## Five-minute demo script
 
-1. **Institution admin** → Overview shows B.Tech CSE has no data yet → **Upload students** → *Try the demo file*. 77 rows: 65 accepted, 6 with review flags, 12 rejected, with codes for missing / invalid / unregistered APAAR, registry mismatch, duplicates within the file and across institutions, admissions #61–#63 beyond intake, the 4th TFW seat over its cap, FN without passport, OCI without card, and more.
+1. **Institution admin** → Overview shows B.Tech CSE has no data yet → **Upload students** (Excel or CSV) → *Try the demo file*. 77 rows: 65 accepted, 6 with review flags, 12 rejected, with codes for missing / invalid / unregistered APAAR, registry mismatch, duplicates within the file and across institutions, admissions #61–#63 beyond intake, the 4th TFW seat over its cap, FN without passport, OCI without card, and more.
 2. **Submit 65 valid rows to AICTE.** The national scan re-runs. The seat ledger shows 60/60 and never exceeds intake.
 3. **AICTE officer** → National overview: KPIs, state tile map, highest-risk institutions with reasons → open one to see its seat ledger and why it scored high.
 4. **Review queue** → filter `DUP-003` → open an item: both records side by side with the evidence → resolve, dismiss or escalate (recorded in the audit trail).
@@ -127,10 +132,22 @@ Supernumerary caps and the admission window in `config.py` are **demo values** m
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q
+cd backend && ../.venv/bin/python -m pytest -q          # 16 API tests on an isolated database
+cd e2e && npm install && npx playwright install chromium && npm test   # browser walkthrough (server running on :8000)
 ```
 
-The tests seed an isolated database and cover every planted defect, seat numbering, RBAC, the intake never being exceeded on commit, risk ranking, consent-scoped disclosure, QR forgery detection, the certificate PDF, audit tamper detection and the reports.
+The API tests cover every planted defect, seat numbering, role-based access, the intake never being exceeded on commit, re-uploads updating records instead of creating new admissions, Excel upload, demo reset, session expiry, export sanitising, risk ranking, consent-scoped disclosure, QR forgery detection, the certificate PDF, audit tamper detection and the reports.
+
+The browser walkthrough resets the demo, then drives all five roles through the eight demo steps above, fails on any browser console error, and saves the screenshots in `docs/screenshots/`.
+
+## Not built yet (production work)
+
+- Live APAAR lookups: the registry adapter uses a mock. Real lookups need AICTE to be onboarded as a DigiLocker / API Setu partner.
+- AICTE SSO (OIDC + MFA), rate limiting and mTLS. The prototype uses signed demo sessions with role-based access and 8-hour expiry.
+- PostgreSQL with encrypted PII columns and row-level security. The prototype uses SQLite.
+- Real OTP delivery. The demo shows the OTP on screen.
+- Hindi covers navigation and headline labels, not every screen.
+- No public deployment; it runs locally with `./run.sh`.
 
 ## Submission deck
 
