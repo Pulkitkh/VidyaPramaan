@@ -9,15 +9,19 @@ const PIN = process.env.DEMO_PIN || "";
 const OUT = process.argv[2] || "screenshots";
 fs.mkdirSync(OUT, { recursive: true });
 
-const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+// VIDEO_DIR=... records the run as a video (for a backup demo); SLOW_MO=ms slows every action so it can be watched.
+const VIDEO = process.env.VIDEO_DIR;
+const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+  slowMo: Number(process.env.SLOW_MO || 0) });
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: VIDEO ? 1 : 2,
+  ...(VIDEO ? { recordVideo: { dir: VIDEO, size: { width: 1440, height: 900 } } } : {}) });
 const page = await ctx.newPage();
 const errors = [];
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push(String(e)));
 
 const shot = async (name, opts = {}) => {
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(VIDEO ? 2200 : 600); // linger on each screen in the video
   await page.screenshot({ path: `${OUT}/${name}.png`, ...opts });
   console.log("shot", name);
 };
@@ -214,6 +218,7 @@ await login("AICTE officer");
 await page.getByText("State-wise monitoring").waitFor();
 await shot("30_mobile_dashboard");
 
+await ctx.close(); // flushes the video file when recording
 await browser.close();
 if (errors.length) {
   console.error("Browser console errors:\n" + errors.join("\n"));
