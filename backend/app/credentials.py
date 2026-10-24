@@ -12,11 +12,12 @@ import uuid
 from datetime import datetime
 
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 
 from .apaar_registry import mask
-from .config import DATA_DIR, PUBLIC_BASE_URL
+from .config import DATA_DIR, PUBLIC_BASE_URL, SECRET_KEY, SECRET_KEY_FROM_ENV
 
 KEY_PATH = DATA_DIR / "issuer_ed25519.pem"
 ISSUER_DID = "did:web:aicte.example.gov.in"
@@ -36,12 +37,21 @@ def _canonical(obj) -> bytes:
 
 
 def _load_key() -> Ed25519PrivateKey:
-    # In deployment the key comes from the environment (PEM text or base64 of the PEM),
-    # so it is never baked into the image and stays the same across redeploys.
+    """Issuer key, in order of preference:
+
+    1. VP_ISSUER_KEY: a PEM (or base64 of one), e.g. from a secrets manager or HSM export;
+    2. derived from VP_SECRET_KEY with HKDF, so a deployment that sets one secret gets a stable
+       signing key without storing a key file in the image;
+    3. a local key file, generated on first run (development only).
+    """
     env_key = os.getenv("VP_ISSUER_KEY", "").strip()
     if env_key:
         pem = env_key.encode() if env_key.startswith("-----") else base64.b64decode(env_key)
         return serialization.load_pem_private_key(pem, password=None)
+    if SECRET_KEY_FROM_ENV:
+        seed = HKDF(algorithm=hashes.SHA256(), length=32, salt=b"vidya-pramaan",
+                    info=b"issuer-ed25519-v1").derive(SECRET_KEY.encode())
+        return Ed25519PrivateKey.from_private_bytes(seed)
     if KEY_PATH.exists():
         return serialization.load_pem_private_key(KEY_PATH.read_bytes(), password=None)
     key = Ed25519PrivateKey.generate()
@@ -52,6 +62,13 @@ def _load_key() -> Ed25519PrivateKey:
 
 _KEY = _load_key()
 _PUB: Ed25519PublicKey = _KEY.public_key()
+
+
+def key_id() -> str:
+    """Short fingerprint of the issuer public key (changes only when the key is rotated)."""
+    raw = _PUB.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    import hashlib
+    return hashlib.sha256(raw).hexdigest()[:16]
 
 
 def public_jwk() -> dict:
@@ -71,7 +88,7 @@ def verify_compact(token: str) -> tuple[bool, dict | None]:
         header, payload, sig = token.strip().split(".")
         _PUB.verify(_unb64(sig), f"{header}.{payload}".encode())
         return True, json.loads(_unb64(payload))
-    except (ValueError, InvalidSignature, json.JSONDecodeError):
+    except (ValueError, InvalidSignature, json.JSONDecodeError, UnicodeDecodeError):
         try:
             return False, json.loads(_unb64(token.split(".")[1]))
         except Exception:
@@ -119,3 +136,15 @@ def verify_vc(vc: dict) -> bool:
     jws = (vc.get("proof") or {}).get("jws", "")
     ok, claims = verify_compact(jws)
     return ok and claims == json.loads(_canonical(body))
+
+
+def resign_token(token: str) -> str:
+    """Re-sign the same claims with the current key (used when the issuer key is rotated)."""
+    return sign_compact(json.loads(_unb64(token.split(".")[1])))
+
+
+def resign_vc(vc: dict) -> dict:
+    body = {k: v for k, v in vc.items() if k != "proof"}
+    proof = dict(vc.get("proof") or {})
+    proof["jws"] = sign_compact(body)
+    return {**body, "proof": proof}

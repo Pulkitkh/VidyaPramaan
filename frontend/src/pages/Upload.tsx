@@ -1,8 +1,8 @@
-import { CheckCircle2, Download, FileUp, Loader2, Send, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Download, FileUp, Loader2, Send, Sparkles } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, ErrorNote, PageHeader, RuleBadge, SeverityBadge, Stat, Tabs } from "../components/ui";
-import { api, fmt, type Batch, type RowResult } from "../lib/api";
+import { api, download, type Batch, type RowResult } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
 type Filter = "all" | "ERROR" | "WARNING" | "OK";
@@ -61,8 +61,8 @@ export default function UploadPage() {
     <>
       <PageHeader title={t("Upload students")} subtitle="Upload after admissions close. Every row is checked against APAAR, your approved intake and all other institutions before anything is stored."
         actions={<>
-          <a className="btn-ghost" href="/api/institution/template.xlsx"><Download size={15} /> Excel template</a>
-          <a className="btn-ghost" href="/api/institution/template.csv"><Download size={15} /> CSV template</a>
+          <button className="btn-ghost" onClick={() => download("/api/institution/template.xlsx")}><Download size={15} /> Excel template</button>
+          <button className="btn-ghost" onClick={() => download("/api/institution/template.csv")}><Download size={15} /> CSV template</button>
         </>} />
 
       {!batch && (
@@ -71,7 +71,7 @@ export default function UploadPage() {
           className={`card flex flex-col items-center justify-center gap-3 border-2 border-dashed px-6 py-14 text-center ${drag ? "border-navy-600 bg-navy-50" : "border-line"}`}>
           <div className="grid h-14 w-14 place-items-center rounded-2xl bg-navy-50 text-navy-700">{busy ? <Loader2 className="animate-spin" /> : <FileUp />}</div>
           <div className="text-base font-semibold">{busy ? "Validating against APAAR registry and national records…" : "Drop your admissions file here (Excel or CSV)"}</div>
-          <p className="max-w-lg text-sm text-ink-2">One row per student, keyed on APAAR ID. Students who declined APAAR, and FN/OCI students, are accepted with a provisional ID.</p>
+          <p className="max-w-lg text-sm text-ink-2">One row per student, keyed on APAAR ID. Your ERP's own column names (Student Name, APAAR No, Date of Birth …) are recognised. Students who declined APAAR, and FN/OCI students, are accepted with a provisional ID.</p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <button className="btn-primary" onClick={() => fileRef.current?.click()} disabled={!!busy}>Choose file</button>
             <button className="btn-accent" onClick={useSample} disabled={!!busy}><Sparkles size={15} /> Try the demo file (B.Tech CSE, 77 rows)</button>
@@ -89,6 +89,17 @@ export default function UploadPage() {
             <Stat label="Warnings" value={batch.warning_rows} tone="warning" hint="Accepted, AICTE will review" />
             <Stat label="Rejected" value={batch.error_rows} tone="critical" hint="Fix and re-upload these rows" />
           </div>
+
+          {batch.column_map?.renamed && Object.keys(batch.column_map.renamed).length > 0 && (
+            <Card className="mt-5" title="Columns recognised automatically" subtitle="Your file's headers were mapped to the AICTE template; nothing needs renaming by hand.">
+              <div className="flex flex-wrap gap-2 text-xs">
+                {Object.entries(batch.column_map.renamed).map(([from, to]) => (
+                  <span key={from} className="inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1">{from} <ArrowRight size={11} className="text-ink-3" /> <span className="mono">{to}</span></span>
+                ))}
+                {(batch.column_map.ignored ?? []).map((c) => <span key={c} className="rounded-lg border border-dashed border-line px-2 py-1 text-ink-3">{c} (not used)</span>)}
+              </div>
+            </Card>
+          )}
 
           <Card className="mt-5" title="What we found" subtitle="Each rule has a stable code, a severity and a plain-language reason, versioned with the ruleset.">
             <div className="flex flex-wrap gap-2">
@@ -109,7 +120,10 @@ export default function UploadPage() {
                   {(committed.updated ?? 0) > 0 && <>, {committed.updated} existing records updated</>}
                   {(committed.unchanged ?? 0) > 0 && <>, {committed.unchanged} already up to date</>}.
                 </div>
-                <div className="text-ink-2">{committed.error_rows} rejected rows were not stored. The national scan re-ran and now shows {fmt.int(committed.scan?.findings)} open items nationwide; AICTE's dashboard updated live.</div>
+                <div className="text-ink-2">{committed.error_rows} rejected rows were not stored. AICTE's dashboard has already updated; the national cross-institution scan is re-running and its review items appear there within seconds.</div>
+                {(committed.changed_since_validation?.length ?? 0) > 0 && (
+                  <div className="mt-1 text-[#7a5200]">Rows {committed.changed_since_validation!.slice(0, 8).join(", ")}{committed.changed_since_validation!.length > 8 ? "…" : ""} were re-checked at submission because records changed after validation (another upload took seats or added these students).</div>
+                )}
               </div>
               <Link className="btn-ghost" to="/institution">View seat ledger</Link>
               <button className="btn-ghost" onClick={() => { setBatch(null); setCommitted(null); }}>Upload another file</button>
@@ -151,6 +165,15 @@ export default function UploadPage() {
                               <li key={i} className="flex items-start gap-2 text-xs"><RuleBadge code={f.code} severity={f.severity} /><span>{f.message}</span></li>
                             ))}
                           </ul>
+                        )}
+                        {r.changes && r.changes.length > 0 && (
+                          <div className="mt-2 rounded-md border border-line bg-[#fafaf8] p-2 text-[11px]">
+                            <div className="mb-1 font-semibold text-ink-2">Preview of the correction</div>
+                            {r.changes.map((c) => (
+                              <div key={c.field} className="flex flex-wrap items-center gap-1"><span className="mono text-ink-3">{c.field}</span>
+                                <span className="line-through text-ink-3">{String(c.old ?? "—")}</span><ArrowRight size={10} /><b>{String(c.new ?? "—")}</b></div>
+                            ))}
+                          </div>
                         )}
                       </td>
                     </tr>

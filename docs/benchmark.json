@@ -1,19 +1,67 @@
 {
  "dataset": {
   "institutions": 240,
-  "students": 47872,
-  "enrolments": 48053
+  "students": 48889,
+  "enrolments": 49053
  },
- "national_scan_seconds": 1.03,
- "risk_scoring_seconds": 0.66,
- "scan_findings": 1424,
- "dual_enrolment_recall": "181/181",
- "identity_duplicate_recall": "60/60",
- "risk_precision_at_k": "41/42",
+ "national_scan_seconds": 8.88,
+ "risk_scoring_seconds": 0.69,
+ "scan_findings": 1369,
+ "dual_enrolment_recall": "164/164",
+ "identity_duplicate_recall": "57/57",
+ "twins_wrongly_flagged": "0/80",
+ "shared_contact_clusters_found": "4/4",
+ "identity_matching_labelled_pairs": {
+  "development": {
+   "current_matcher": {
+    "pairs": 80,
+    "precision": 0.878,
+    "recall": 0.9,
+    "by_kind": {
+     "common": "5/15 flagged",
+     "twin": "0/25 flagged",
+     "variant": "36/40 flagged"
+    }
+   },
+   "previous_matcher": {
+    "pairs": 80,
+    "precision": 0.586,
+    "recall": 0.425,
+    "by_kind": {
+     "common": "6/15 flagged",
+     "twin": "6/25 flagged",
+     "variant": "17/40 flagged"
+    }
+   }
+  },
+  "held_out": {
+   "current_matcher": {
+    "pairs": 49,
+    "precision": 0.793,
+    "recall": 0.92,
+    "by_kind": {
+     "common": "4/12 flagged",
+     "twin": "2/12 flagged",
+     "variant": "23/25 flagged"
+    }
+   },
+   "previous_matcher": {
+    "pairs": 49,
+    "precision": 0.654,
+    "recall": 0.68,
+    "by_kind": {
+     "common": "5/12 flagged",
+     "twin": "4/12 flagged",
+     "variant": "17/25 flagged"
+    }
+   }
+  }
+ },
+ "risk_precision_at_k": "42/46",
  "high_risk_alerts_all_planted": true,
- "high_risk_alerts": 8,
+ "high_risk_alerts": 3,
  "upload_rows": 77,
- "upload_validation_ms": 57,
- "planted_defect_types_caught": "16/16",
+ "upload_validation_ms": 155,
+ "planted_defect_types_caught": "17/17",
  "upload_rows_clean": 56
 }

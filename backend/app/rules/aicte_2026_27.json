@@ -1,0 +1,41 @@
+{
+  "academic_year": "2026-27",
+  "admission_year": 2026,
+  "version": "aicte-2026-27.2",
+  "title": "AICTE regulatory parameters, academic year 2026-27",
+  "admission_window": ["2026-06-01", "2026-09-30"],
+  "near_cap_warning": 0.95,
+  "excess_admission_penalty": {
+    "text": "Fine of five times the total course fee collected per excess student, plus possible suspension of supernumerary seats, intake reduction or withdrawal of approval. A show-cause notice comes first.",
+    "verified": true,
+    "source": "AICTE Approval Process Handbook, excess-admission clause; Supreme Court, FORE School of Management v AICTE (21 Jun 2019)"
+  },
+  "supernumerary": {
+    "FN_OCI_PIO": {
+      "label": "Foreign nationals / OCI / PIO (incl. children of Indian workers in Gulf countries)",
+      "caps": {"UG": 0.15, "PG": 0.25, "DIPLOMA": 0.15},
+      "verified": true,
+      "source": "AICTE APH 2026-27 addendum: 15% for UG engineering, 25% for PG engineering, management, design and other programmes. CIWG share reverted to the earlier arrangement by AICTE circular of 28 Sep 2026.",
+      "note": "Diploma value is an assumption (same as UG); confirm with the handbook in force."
+    },
+    "TFW": {
+      "label": "Tuition Fee Waiver",
+      "caps": {"UG": 0.05, "PG": 0.05, "DIPLOMA": 0.05},
+      "verified": false,
+      "source": "Commonly cited 5% of approved intake; not re-verified against APH 2024-27 for this prototype."
+    },
+    "LATERAL": {
+      "label": "Lateral entry into the second year",
+      "caps": {"UG": 0.10, "PG": 0.0, "DIPLOMA": 0.10},
+      "verified": false,
+      "source": "Commonly cited 10% supernumerary; not re-verified against APH 2024-27 for this prototype."
+    },
+    "EWS": {
+      "label": "Economically Weaker Section (where sanctioned as supernumerary)",
+      "caps": {"UG": 0.10, "PG": 0.10, "DIPLOMA": 0.10},
+      "verified": false,
+      "source": "Applies only where EWS seats are sanctioned as supernumerary; value is a demo assumption."
+    }
+  },
+  "age_limits": {"UG": [16, 30], "PG": [20, 45], "DIPLOMA": [14, 30]}
+}

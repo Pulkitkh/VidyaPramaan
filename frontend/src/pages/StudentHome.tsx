@@ -1,17 +1,17 @@
 import { BadgeCheck, Copy, Download, Eye, FileBadge2, ShieldCheck, Smartphone } from "lucide-react";
 import { useState } from "react";
 import { Card, ErrorNote, PageHeader, Spinner } from "../components/ui";
-import { api, fmt, withToken } from "../lib/api";
+import { api, download, fmt } from "../lib/api";
 import { useApi } from "../lib/hooks";
 import { useI18n } from "../lib/i18n";
 
 interface MyRecord {
   student: { name: string; apaar_id: string | null; provisional_id: string | null; dob: string; gender: string; category: string; nationality: string; apaar_consent: string };
   enrolments: { id: number; institution: string; aicte_pid: string; programme: string; roll_no: string; admission_year: number; year_of_study: number; status: string; quota: string }[];
-  credentials: { id: string; status: string; issued_at: string; enrolment_id: number; vc: object; token: string; verify_url: string }[];
+  credentials: { id: string; status: string; reason: string | null; issued_at: string; enrolment_id: number; vc: object; token: string; verify_url: string }[];
   access_log: { id: number; verifier_org: string; basis: string; purpose: string; disclosed: object; at: string }[];
 }
-interface Consent { id: number; verifier_org: string; purpose: string; scope: string[]; status: string; created_at: string; expires_at: string; demo_otp?: string }
+interface Consent { id: number; verifier_org: string; purpose: string; scope: string[]; status: string; created_at: string; expires_at: string; attempts_left: number; demo_otp?: string }
 
 const BASIS: Record<string, string> = { CONSENT: "With your consent", STATUTORY: "Statutory (regulator)", CREDENTIAL: "QR scan" };
 
@@ -32,12 +32,17 @@ export default function StudentHome() {
     } catch (e) { setErr((e as Error).message); }
   };
   const revoke = async (id: number) => { await api(`/api/me/consents/${id}/revoke`, { method: "POST" }); consents.reload(); };
+  const reissue = async (enrolmentId: number) => {
+    setErr(null);
+    try { await api(`/api/v1/certificate-data/${enrolmentId}`); reload(); } catch (e) { setErr((e as Error).message); }
+  };
 
   if (error) return <ErrorNote message={error} />;
   if (!data) return <Spinner />;
   const s = data.student;
   const e = data.enrolments[0];
   const cred = data.credentials.find((c) => c.status === "ACTIVE");
+  const replaced = data.credentials.filter((c) => c.status !== "ACTIVE");
   const pending = (consents.data ?? []).filter((c) => c.status === "PENDING");
   const past = (consents.data ?? []).filter((c) => c.status !== "PENDING");
   const apaar = s.apaar_id ? s.apaar_id.replace(/(\d{4})(?=\d)/g, "$1 ") : s.provisional_id;
@@ -82,7 +87,7 @@ export default function StudentHome() {
             )}
           </Card>
 
-          <Card title={`Consent requests${pending.length ? ` (${pending.length} waiting)` : ""}`} subtitle="Nobody outside AICTE sees your data unless you approve. You choose per request.">
+          <Card title={`Consent requests${pending.length ? ` (${pending.length} waiting)` : ""}`} subtitle="Employers and other verifiers see nothing unless you approve, field by field. Your institution and regulators use your record for statutory purposes; every access is listed below.">
             {err && <div className="mb-3"><ErrorNote message={err} /></div>}
             {pending.length === 0 && <p className="text-sm text-ink-3">No pending requests.</p>}
             <div className="space-y-3">
@@ -99,6 +104,7 @@ export default function StudentHome() {
                     <button className="btn-primary" onClick={() => decide(c.id, "APPROVE")}>Approve</button>
                     <button className="btn-ghost" onClick={() => decide(c.id, "DENY")}>Deny</button>
                     {c.demo_otp && <span className="text-[11px] text-ink-3">Demo OTP: <b className="mono">{c.demo_otp}</b></span>}
+                    {c.attempts_left < 5 && <span className="text-[11px] text-[#9a6700]">{c.attempts_left} attempts left</span>}
                   </div>
                 </div>
               ))}
@@ -138,14 +144,24 @@ export default function StudentHome() {
                 <img src={`/api/credentials/${encodeURIComponent(cred.id)}/qr.png`} alt="Credential QR code" className="mx-auto h-52 w-52 rounded-lg border border-line" />
                 <div className="mt-2 text-center text-[11px] text-ink-3">Issued {fmt.date(cred.issued_at)} · {cred.status}</div>
                 <div className="mt-4 grid gap-2">
-                  {e && <a className="btn-primary" target="_blank" rel="noreferrer" href={withToken(`/api/enrolments/${e.id}/certificate.pdf`)}><FileBadge2 size={15} /> Certificate with APAAR ID (PDF)</a>}
+                  {e && <button className="btn-primary" onClick={() => download(`/api/enrolments/${e.id}/certificate.pdf`, "certificate.pdf", true).catch((x) => setErr(x.message))}><FileBadge2 size={15} /> Certificate with APAAR ID (PDF)</button>}
                   <button className="btn-ghost" onClick={downloadVc}><Download size={15} /> Download W3C credential (JSON)</button>
                   <button className="btn-ghost" onClick={() => { navigator.clipboard?.writeText(cred.verify_url); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
                     <Copy size={15} /> {copied ? "Copied" : "Copy verification link"}
                   </button>
                 </div>
               </>
-            ) : <p className="text-sm text-ink-3">No credential issued yet.</p>}
+            ) : (
+              <div className="text-sm text-ink-2">
+                <p>{replaced.length ? "Your earlier credential is no longer valid (see below)." : "No credential issued yet."}</p>
+                {e && e.status === "ACTIVE" && <button className="btn-primary mt-3" onClick={() => reissue(e.id)}><ShieldCheck size={15} /> Issue my credential</button>}
+              </div>
+            )}
+            {replaced.length > 0 && (
+              <ul className="mt-4 space-y-1 border-t border-line pt-3 text-[11px] text-ink-3">
+                {replaced.map((c) => <li key={c.id}>{fmt.date(c.issued_at)} · <b>{c.status.toLowerCase()}</b>{c.reason ? ` (${c.reason})` : ""}: a scan of this QR shows it is no longer current</li>)}
+              </ul>
+            )}
           </Card>
         </div>
       </div>

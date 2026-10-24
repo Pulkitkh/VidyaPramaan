@@ -14,9 +14,11 @@ from sqlalchemy import insert
 
 from . import audit, config
 from .anomaly import score_institutions
+from .auth import otp_hash
 from .credentials import build_credential
 from .db import Base, SessionLocal, engine
-from .models import (ConsentRequest, Credential, Enrolment, Institution, MockApaarRecord, Programme,
+from .keys import record_key
+from .models import (ConsentRequest, Credential, Enrolment, Institution, MockApaarRecord, Programme, Setting,
                      Student, VerificationLog, now)
 from .scan import run_scan
 
@@ -85,8 +87,26 @@ AGE_BY_LEVEL = {"UG": (17, 19), "PG": (21, 26), "DIPLOMA": (15, 17)}
 FN_COUNTRIES = ["Nepal", "Bangladesh", "Afghanistan", "Sri Lanka", "Nigeria", "Bhutan", "Kenya", "Tanzania"]
 NRI_COUNTRIES = ["UAE", "Qatar", "Oman", "Kuwait", "Saudi Arabia", "USA", "UK", "Singapore"]
 LATERAL_CODES = {"BTCSE", "BTECE", "BTME", "BTCE", "BTAIDS", "BPHARM"}
+# Twins and siblings born the same day: real people who must NOT be merged (hard negatives).
+TWIN_NAMES = {"M": [("Rohit", "Mohit"), ("Ram", "Shyam"), ("Luv", "Kush"), ("Aarav", "Aarush"), ("Ramesh", "Rajesh"),
+                    ("Arjun", "Arun"), ("Sahil", "Nikhil"), ("Karan", "Arjun"), ("Varun", "Tarun"), ("Amit", "Sumit")],
+              "F": [("Sneha", "Neha"), ("Riya", "Siya"), ("Pooja", "Prachi"), ("Anjali", "Anju"), ("Sita", "Gita"),
+                    ("Kavya", "Divya"), ("Isha", "Disha"), ("Priya", "Supriya"), ("Mira", "Tara"), ("Nisha", "Asha")]}
 
 used_apaar: set[str] = set()
+used_mobile: set[str] = set()
+
+
+def university_of(state: str) -> str:
+    return f"{state} State Technical University (demo)"
+
+
+def new_mobile() -> str:
+    while True:
+        m = f"{RNG.choice('6789')}{RNG.randint(10**8, 10**9 - 1)}"
+        if m not in used_mobile:
+            used_mobile.add(m)
+            return m
 
 
 def new_apaar() -> str:
@@ -103,20 +123,39 @@ def person(level: str) -> dict:
     last = FAKE.last_name()
     lo, hi = AGE_BY_LEVEL[level]
     dob = date(2026 - RNG.randint(lo, hi), 1, 1) + timedelta(days=RNG.randint(0, 364))
-    return {"name": f"{first} {last}", "gender": g, "dob": dob,
-            "father_name": f"{FAKE.first_name_male()} {last}",
+    parents = RNG.random()
+    father = f"{FAKE.first_name_male()} {last}" if parents > 0.04 else None   # ~4% single-mother / guardian records
+    mother = f"{FAKE.first_name_female()} {last}" if parents > 0.01 else None
+    guardian = f"{FAKE.first_name_male()} {FAKE.last_name()}" if parents <= 0.01 else None
+    first_l = first.lower()
+    return {"name": f"{first} {last}", "gender": g, "dob": dob, "father_name": father, "mother_name": mother,
+            "guardian_name": guardian, "mobile": new_mobile(),
+            "email": f"{first_l}.{last.lower()}{RNG.randint(1, 999)}@example.in" if RNG.random() < 0.6 else None,
             "category": RNG.choices(["GEN", "OBC", "SC", "ST", "EWS"], [35, 35, 15, 7, 8])[0]}
 
 
 def variant(name: str) -> str:
+    """How the same person's name drifts between two records."""
     parts = name.split()
-    choice = RNG.randint(0, 2)
+    choice = RNG.randint(0, 3)
     if choice == 0 and len(parts) >= 2:
-        return f"{parts[0]} {RNG.choice('KRSMP')}. {' '.join(parts[1:])}"
+        return f"{parts[0]} {RNG.choice('KRSMP')}. {' '.join(parts[1:])}"   # middle initial added
     if choice == 1 and len(parts) >= 2:
-        return " ".join(parts[1:] + parts[:1])
-    return name.replace("ee", "i").replace("oo", "u").replace("w", "v") if any(
-        x in name for x in ("ee", "oo", "w")) else name + "a"
+        return " ".join(parts[1:] + parts[:1])                             # surname first
+    if choice == 2 and len(parts) >= 2:
+        return f"{parts[0][0]}. {' '.join(parts[1:])}"                      # given name as an initial
+    return name.replace("ee", "i").replace("oo", "u").replace("w", "v").replace("sh", "s") if any(
+        x in name for x in ("ee", "oo", "w", "sh")) else name + "a"        # transliteration
+
+
+def variant_person(src: dict) -> dict:
+    p = {**src, "name": variant(src["name"]), "mobile": new_mobile(), "email": None}
+    if p.get("father_name") and RNG.random() < 0.3:
+        p["father_name"] = f"Shri {p['father_name']}"                       # honorific on the parent's name
+    d = src["dob"]
+    if RNG.random() < 0.15 and d.day <= 12 and d.day != d.month:
+        p["dob"] = date(d.year, d.day, d.month)                             # day and month swapped
+    return p
 
 
 def adm_date(late: bool = False) -> date:
@@ -136,8 +175,9 @@ class Builder:
         rec = {"id": self.sid, "apaar_id": apaar, "provisional_id": None, "nationality": "Indian",
                "fn_status": False, "oci_status": False, "oci_card_no": None, "passport_no": None,
                "nri_status": False, "nri_country": None, "pwd": RNG.random() < 0.01,
-               "apaar_consent": "GIVEN", **{k: p[k] for k in ("name", "gender", "dob", "father_name",
-                                                               "category")}, **extra}
+               "apaar_consent": "GIVEN", **{k: p.get(k) for k in ("name", "gender", "dob", "father_name",
+                                                                   "mother_name", "guardian_name", "mobile",
+                                                                   "email", "category")}, **extra}
         if apaar is None and (rec["apaar_consent"] == "REFUSED" or rec["fn_status"] or rec["oci_status"]):
             rec["provisional_id"] = f"PRV-{self.sid:08d}"
         self.students.append(rec)
@@ -155,7 +195,8 @@ class Builder:
             "admission_year": 2026, "year_of_study": 2 if lateral else 1,
             "admission_type": "LATERAL" if lateral else "REGULAR", "quota": quota,
             "seat_type": "SUPERNUMERARY" if sn_type else "WITHIN_INTAKE", "supernumerary_type": sn_type,
-            "admission_date": adm_date(late), "status": "ACTIVE", "created_at": now()})
+            "admission_date": adm_date(late), "status": "ACTIVE", "exit_date": None, "exit_reason": None,
+            "created_at": now()})
         return self.eid
 
 
@@ -166,7 +207,8 @@ def build(n_institutions: int) -> tuple[Builder, dict]:
 
     def add_inst(name, state, region, city, itype, pid):
         inst = {"id": len(b.institutions) + 1, "aicte_pid": pid, "name": name, "state": state,
-                "city": city, "region": region, "inst_type": itype, "risk_score": 0.0,
+                "city": city, "region": region, "inst_type": itype, "university": university_of(state),
+                "risk_score": 0.0,
                 "risk_reasons": [], "quality_score": 100.0}
         b.institutions.append(inst)
         return inst
@@ -196,7 +238,8 @@ def build(n_institutions: int) -> tuple[Builder, dict]:
     pool = [i["id"] for i in b.institutions[1:]]
     RNG.shuffle(pool)
     plant = {"over_intake": set(pool[0:10]), "ghost": set(pool[10:18]), "fn_excess": set(pool[18:23]),
-             "apaar_gap": set(pool[23:31]), "identity_dup": set(pool[31:37]), "late": set(pool[37:42])}
+             "apaar_gap": set(pool[23:31]), "identity_dup": set(pool[31:37]), "late": set(pool[37:42]),
+             "shared_contact": set(pool[42:46])}
     plant["fn_excess"] |= {pool[0]}  # one institution with compounded issues
 
     for inst in b.institutions:
@@ -278,14 +321,49 @@ def build(n_institutions: int) -> tuple[Builder, dict]:
                   and e["seat_type"] == "WITHIN_INTAKE" and students[e["student_id"]]["apaar_id"]]
         for k, e in enumerate(RNG.sample(donors, RNG.randint(6, 14))):
             src = students[e["student_id"]]
-            pp = {**src, "name": variant(src["name"])}
-            sid = b.student(pp, new_apaar())
+            sid = b.student(variant_person(src), new_apaar())
             b.enrol(sid, inst, target_prog, 950 + k, "MANAGEMENT", None)
+
+    # Shared-contact clusters: one agent's phone or e-mail on many admissions across institutions.
+    contact_plan = []
+    shared = sorted(plant["shared_contact"])
+    for c in range(len(shared)):
+        sites = [shared[c], shared[(c + 1) % len(shared)]]
+        n = RNG.randint(5, 9)
+        first = [e for e in b.enrolments if e["institution_id"] == sites[0] and 900 > int(e["roll_no"][-3:])]
+        second = [e for e in b.enrolments if e["institution_id"] == sites[1] and 900 > int(e["roll_no"][-3:])]
+        picked = RNG.sample(first, n - n // 2) + RNG.sample(second, n // 2)
+        kind = "mobile" if c % 2 == 0 else "email"
+        value = new_mobile() if kind == "mobile" else f"admissions.desk{c}@example.in"
+        for e in picked:
+            next(s for s in b.students if s["id"] == e["student_id"])[kind] = value
+        contact_plan.append({"kind": kind, "students": len(picked), "institutions": sites})
+
+    # Hard negatives: same-day twins and siblings (same parents, surname, DOB and often the parent's phone).
+    twins = []
+    eligible = [i for i in b.institutions[1:] if i["id"] not in plant["identity_dup"]]
+    for k in range(40):
+        g = RNG.choice("MF")
+        a_name, b_name = RNG.choice(TWIN_NAMES[g])
+        base = person("UG")
+        last = base["name"].split()[-1]
+        father, mother = f"{FAKE.first_name_male()} {last}", f"{FAKE.first_name_female()} {last}"
+        phone = new_mobile()
+        inst_a = RNG.choice(eligible)
+        inst_b = inst_a if k < 25 else RNG.choice(eligible)
+        for given, inst in ((a_name, inst_a), (b_name, inst_b)):
+            prog = next(p for p in b.programmes if p["institution_id"] == inst["id"])
+            pp = {**base, "name": f"{given} {last}", "gender": g, "father_name": father, "mother_name": mother,
+                  "guardian_name": None, "mobile": phone, "email": None}
+            sid = b.student(pp, new_apaar())
+            b.enrol(sid, inst, prog, 600 + 2 * k + (given == b_name), "STATE_CAP", None)
+        twins.append((f"{a_name} {last}", f"{b_name} {last}"))
 
     # A few deactivated registry entries for realism.
     for a in RNG.sample(list(b.registry), 15):
         b.registry[a]["status"] = "DEACTIVATED"
-    return b, {"demo": demo, "plant": {k: sorted(v) for k, v in plant.items()}}
+    return b, {"demo": demo, "plant": {k: sorted(v) for k, v in plant.items()}, "twins": twins,
+               "contact_clusters": contact_plan}
 
 
 def build_demo_csv(b: Builder, demo: dict) -> list[dict]:
@@ -304,10 +382,13 @@ def build_demo_csv(b: Builder, demo: dict) -> list[dict]:
     def row(p, apaar="", **kw):
         r = {"apaar_id": apaar, "apaar_consent": "GIVEN", "roll_no": "", "name": p["name"],
              "dob": p["dob"].isoformat(), "gender": p["gender"], "category": p["category"],
-             "father_name": p["father_name"], "programme_code": "BTCSE", "year_of_study": 1,
+             "father_name": p.get("father_name") or "", "mother_name": p.get("mother_name") or "",
+             "guardian_name": p.get("guardian_name") or "", "programme_code": "BTCSE", "admission_year": 2026,
+             "year_of_study": 1,
              "admission_type": "REGULAR", "quota": "STATE_CAP", "nationality": "Indian", "fn_status": "N",
              "oci_status": "N", "oci_card_no": "", "passport_no": "", "nri_status": "N", "nri_country": "",
-             "pwd": "N", "admission_date": adm_date().isoformat()}
+             "pwd": "N", "admission_date": adm_date().isoformat(), "mobile": p.get("mobile") or new_mobile(),
+             "email": p.get("email") or ""}
         r.update(kw)
         return r
 
@@ -323,7 +404,7 @@ def build_demo_csv(b: Builder, demo: dict) -> list[dict]:
         s = students[e["student_id"]]
         specials.append(row(s, s["apaar_id"]))
     src = students[RNG.choice(others)["student_id"]]  # DUP-003 same person, new APAAR
-    p = {**src, "name": variant(src["name"])}
+    p = {**src, "name": variant(src["name"]), "mobile": new_mobile()}
     a = new_apaar()
     b.registry[a] = {"apaar_id": a, "name": p["name"], "dob": p["dob"], "gender": p["gender"], "status": "ACTIVE"}
     specials.append(row(p, a))
@@ -352,6 +433,8 @@ def build_demo_csv(b: Builder, demo: dict) -> list[dict]:
     fn_ok = [row(person("UG") | {"category": "GEN"}, "", quota="FN_OCI_PIO", fn_status="Y",
                  nationality=n, passport_no=f"P{RNG.randint(10**6, 10**7 - 1)}") for n in ("Nepal", "Bangladesh")]
     base = [clean() for _ in range(56)]
+    # A student raised by her mother: no father's name on record, accepted like any other row.
+    base[5]["father_name"], base[5]["mother_name"] = "", base[5]["mother_name"] or "Sunita Pawar"
     body = base[:53] + specials + errors + tfw + fn_ok
     head, tail = body[:3], body[3:]
     RNG.shuffle(tail)
@@ -418,24 +501,35 @@ def main(n_institutions: int | None = None) -> dict:
     db.add(Credential(id=cred_id, student_id=s.id, enrolment_id=enrol.id, vc=vc, token=token))
     audit.record(db, "inst.admin", "INSTITUTION_ADMIN", "CREDENTIAL_ISSUED", "credential", cred_id,
                  {"student": s.provisional_id or s.apaar_id[-4:]})
-    c1 = ConsentRequest(student_id=s.id, verifier_org="Acme Technologies Pvt Ltd (demo employer)",
+    c1 = ConsentRequest(student_id=s.id, apaar_masked=f"XXXX-XXXX-{s.apaar_id[-4:]}",
+                        verifier_org="Acme Technologies Pvt Ltd (demo employer)",
                         verifier_user="hr.verifier", purpose="Pre-joining education verification",
                         scope=["enrolment_status", "programme", "institution"], status="APPROVED",
-                        otp="000000", expires_at=now() + timedelta(days=1), decided_at=now())
+                        otp_hash="-", expires_at=now() + timedelta(days=1), decided_at=now())
     db.add(c1)
     db.flush()
     db.add(VerificationLog(student_id=s.id, consent_id=c1.id, verifier_org=c1.verifier_org, basis="CONSENT",
                            purpose=c1.purpose, disclosed={"enrolment_status": "ACTIVE",
                                                           "programme": demo_ece["name"],
                                                           "institution": meta["demo"]["name"]}))
-    db.add(ConsentRequest(student_id=s.id, verifier_org="National Scholarship Portal (demo)",
-                          verifier_user="nsp.verifier", purpose="Scholarship eligibility check",
-                          scope=["enrolment_status", "admission_year"], status="PENDING",
-                          otp=f"{RNG.randint(0, 999999):06d}", expires_at=now() + timedelta(days=1)))
+    c2 = ConsentRequest(student_id=s.id, apaar_masked=f"XXXX-XXXX-{s.apaar_id[-4:]}",
+                        verifier_org="National Scholarship Portal (demo)",
+                        verifier_user="nsp.verifier", purpose="Scholarship eligibility check",
+                        scope=["enrolment_status", "admission_year"], status="PENDING", otp_hash="-",
+                        expires_at=now() + timedelta(days=1))
+    db.add(c2)
+    db.flush()
+    otp = f"{RNG.randint(0, 999999):06d}"
+    c2.otp_hash, c2.demo_otp = otp_hash(c2.id, otp), otp
+    audit.checkpoint(db)
+    record_key(db)
+    db.add(Setting(key="seeded_at", value=now().isoformat()))
+    db.add(Setting(key="persona_student_id", value=str(s.id)))
     db.commit()
     db.close()
     summary = {"institutions": len(b.institutions), "students": len(b.students),
-               "enrolments": len(b.enrolments), "scan": scan, "planted": meta["plant"],
+               "enrolments": len(b.enrolments), "scan": scan, "planted": meta["plant"], "twins": meta["twins"],
+               "contact_clusters": meta["contact_clusters"],
                "persona_student_id": persona_enrol["student_id"], "sample_csv": str(SAMPLE_CSV),
                "sample_rows": len(csv_rows)}
     (config.DATA_DIR / "seed_summary.json").write_text(__import__("json").dumps(summary, indent=1, default=str))

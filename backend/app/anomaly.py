@@ -1,7 +1,7 @@
 """Institution risk scoring.
 
-Combines an unsupervised outlier model (Isolation Forest over peer-relative
-features) with rule-based evidence, and explains every score with the features
+Combines an unsupervised outlier model (Isolation Forest over per-institution
+rates) with rule-based evidence, and explains every score with the features
 that deviate most from peers. Scores prioritise review; they do not establish
 wrongdoing.
 """
@@ -28,7 +28,10 @@ FEATURES = {
                           "APAAR ID", "peer median {m:.1%}", 0.02),
     "late_admission_rate": ("{v:.1%} of admissions fall outside the admission window",
                             "peer median {m:.1%}", 0.05),
+    "shared_contact_rate": ("{v:.1%} of students share a mobile or e-mail with many students elsewhere",
+                            "peer median {m:.1%}", 0.02),
 }
+MIN_PEER_GROUP = 12  # smaller groups fall back to all institutions
 
 
 def compute_features(db: Session) -> tuple[list[int], np.ndarray, dict]:
@@ -73,6 +76,7 @@ def compute_features(db: Session) -> tuple[list[int], np.ndarray, dict]:
             per_rule[i]["DUP-002"] / t,
             per_rule[i]["DUP-003"] / t,
             per_rule[i]["CON-006"] / t,
+            per_rule[i]["DUP-004"] / t,
         ])
     return insts, np.array(X, dtype=float), per_rule
 
@@ -85,9 +89,20 @@ def score_institutions(db: Session) -> dict:
     raw = -model.score_samples(X)
     iso = (raw - raw.min()) / (raw.max() - raw.min() + 1e-9) * 100
 
-    med = np.median(X, axis=0)
-    mad = np.median(np.abs(X - med), axis=0) * 1.4826
-    spread = np.where(mad > 1e-6, mad, X.std(axis=0) + 1e-6)
+    # Peers are institutions of the same type (engineering colleges against engineering colleges).
+    types = dict(db.execute(select(Institution.id, Institution.inst_type)).all())
+    groups: dict[str, list[int]] = defaultdict(list)
+    for k, inst_id in enumerate(ids):
+        groups[types[inst_id]].append(k)
+    peer = {}
+    for t, rows in groups.items():
+        sub = X[rows] if len(rows) >= MIN_PEER_GROUP else X
+        med = np.median(sub, axis=0)
+        mad = np.median(np.abs(sub - med), axis=0) * 1.4826
+        spread = np.where(mad > 1e-6, mad, sub.std(axis=0) + 1e-6)
+        label = f"{t.lower()} peers" if len(rows) >= MIN_PEER_GROUP else "all institutions"
+        for k in rows:
+            peer[k] = (med, spread, label)
     names = list(FEATURES)
 
     totals = dict(db.execute(select(Enrolment.institution_id, func.count())
@@ -98,16 +113,18 @@ def score_institutions(db: Session) -> dict:
         .group_by(Finding.institution_id)).all())
 
     for k, inst_id in enumerate(ids):
+        med, spread, label = peer[k]
         z = (X[k] - med) / spread
         reasons = []
         for j in np.argsort(-z):
-            text, peer, floor = FEATURES[names[j]]
+            text, peer_txt, floor = FEATURES[names[j]]
             hard_violation = names[j] == "excess_admission_rate" and X[k, j] > 0
             if (z[j] < 3 and not hard_violation) or X[k, j] <= floor:
                 continue
             reasons.append({"feature": names[j], "value": round(float(X[k, j]), 4),
                             "peer_median": round(float(med[j]), 4), "z": round(float(min(z[j], 99)), 1),
-                            "text": text.format(v=X[k, j]) + f" ({peer.format(m=med[j])})"})
+                            "peers": label,
+                            "text": text.format(v=X[k, j]) + f" ({peer_txt.format(m=med[j])}, {label})"})
             if len(reasons) == 3:
                 break
         rules = per_rule[inst_id]

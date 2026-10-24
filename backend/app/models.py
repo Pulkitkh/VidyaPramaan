@@ -19,6 +19,7 @@ class Institution(Base):
     city: Mapped[str] = mapped_column(String(80))
     region: Mapped[str] = mapped_column(String(30))
     inst_type: Mapped[str] = mapped_column(String(40))
+    university: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)  # affiliating body
     risk_score: Mapped[float] = mapped_column(Float, default=0)
     risk_reasons: Mapped[list] = mapped_column(JSON, default=list)
     quality_score: Mapped[float] = mapped_column(Float, default=100)
@@ -46,7 +47,12 @@ class Student(Base):
     dob: Mapped[date] = mapped_column(Date, index=True)
     gender: Mapped[str] = mapped_column(String(1))
     category: Mapped[str] = mapped_column(String(10))
-    father_name: Mapped[str] = mapped_column(String(120))
+    # At least one of father / mother / guardian is required; none of them is mandatory on its own.
+    father_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    mother_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    guardian_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    mobile: Mapped[str | None] = mapped_column(String(15), nullable=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     nationality: Mapped[str] = mapped_column(String(40), default="Indian")
     fn_status: Mapped[bool] = mapped_column(Boolean, default=False)
     oci_status: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -55,7 +61,7 @@ class Student(Base):
     nri_status: Mapped[bool] = mapped_column(Boolean, default=False)
     nri_country: Mapped[str | None] = mapped_column(String(40), nullable=True)
     pwd: Mapped[bool] = mapped_column(Boolean, default=False)
-    apaar_consent: Mapped[str] = mapped_column(String(10), default="GIVEN")  # GIVEN | REFUSED
+    apaar_consent: Mapped[str] = mapped_column(String(14), default="GIVEN")  # GIVEN | REFUSED | NOT_RECORDED
 
 
 class Enrolment(Base):
@@ -72,7 +78,10 @@ class Enrolment(Base):
     seat_type: Mapped[str] = mapped_column(String(15))  # WITHIN_INTAKE | SUPERNUMERARY
     supernumerary_type: Mapped[str | None] = mapped_column(String(15), nullable=True)
     admission_date: Mapped[date] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String(10), default="ACTIVE")
+    # ACTIVE | WITHDRAWN | TRANSFERRED_OUT | GRADUATED | DROPPED
+    status: Mapped[str] = mapped_column(String(16), default="ACTIVE", index=True)
+    exit_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    exit_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     batch_id: Mapped[int | None] = mapped_column(ForeignKey("upload_batch.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     student: Mapped[Student] = relationship()
@@ -94,6 +103,8 @@ class UploadBatch(Base):
     warning_rows: Mapped[int] = mapped_column(Integer, default=0)
     committed_rows: Mapped[int] = mapped_column(Integer, default=0)
     rows: Mapped[list] = mapped_column(JSON, default=list)
+    column_map: Mapped[dict] = mapped_column(JSON, default=dict)
+    idempotency_key: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
     row_results: Mapped[list] = mapped_column(JSON, default=list)
 
 
@@ -112,7 +123,12 @@ class Finding(Base):
     evidence: Mapped[dict] = mapped_column(JSON, default=dict)
     rule_version: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(10), default="OPEN", index=True)
+    # Stable identity of what was found (rule + records involved). Reviewer decisions are remembered
+    # by fingerprint, so a dismissed item does not come back on the next national scan.
+    fingerprint: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     institution: Mapped[Institution] = relationship(foreign_keys=[institution_id])
 
@@ -130,15 +146,20 @@ class MockApaarRecord(Base):
 class ConsentRequest(Base):
     __tablename__ = "consent_request"
     id: Mapped[int] = mapped_column(primary_key=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("student.id"), index=True)
+    # Null when no record exists for the APAAR ID: the request is kept and simply never answered,
+    # so a verifier cannot use consent requests to probe who is in the registry.
+    student_id: Mapped[int | None] = mapped_column(ForeignKey("student.id"), index=True, nullable=True)
+    apaar_masked: Mapped[str] = mapped_column(String(20), default="")
     verifier_org: Mapped[str] = mapped_column(String(120))
     verifier_user: Mapped[str] = mapped_column(String(60))
     purpose: Mapped[str] = mapped_column(String(200))
     scope: Mapped[list] = mapped_column(JSON)
-    status: Mapped[str] = mapped_column(String(10), default="PENDING")
-    otp: Mapped[str] = mapped_column(String(6))
+    status: Mapped[str] = mapped_column(String(10), default="PENDING")  # PENDING|APPROVED|DENIED|REVOKED|EXPIRED|LOCKED
+    otp_hash: Mapped[str] = mapped_column(String(64))
+    demo_otp: Mapped[str | None] = mapped_column(String(6), nullable=True)  # kept only in demo mode
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
-    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)  # request expiry, then access-window expiry once approved
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
@@ -161,7 +182,8 @@ class Credential(Base):
     enrolment_id: Mapped[int] = mapped_column(ForeignKey("enrolment.id"))
     vc: Mapped[dict] = mapped_column(JSON)
     token: Mapped[str] = mapped_column(Text)
-    status: Mapped[str] = mapped_column(String(10), default="ACTIVE")
+    status: Mapped[str] = mapped_column(String(10), default="ACTIVE")  # ACTIVE | SUPERSEDED | REVOKED
+    status_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
     issued_at: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
@@ -177,3 +199,35 @@ class AuditEvent(Base):
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     prev_hash: Mapped[str] = mapped_column(String(64))
     hash: Mapped[str] = mapped_column(String(64))
+
+
+class AuditCheckpoint(Base):
+    """Signed snapshot of the audit chain head. Published copies make a silent rewrite of history,
+    or truncation of its tail, detectable even by someone who can recompute every hash."""
+    __tablename__ = "audit_checkpoint"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ts: Mapped[str] = mapped_column(String(32))
+    event_count: Mapped[int] = mapped_column(Integer)
+    head_event_id: Mapped[int] = mapped_column(Integer)
+    head_hash: Mapped[str] = mapped_column(String(64))
+    signature: Mapped[str] = mapped_column(Text)
+
+
+class ApiKey(Base):
+    """Per-institution key for ERP integration. Only a hash is stored; the key is shown once."""
+    __tablename__ = "api_key"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    institution_id: Mapped[int] = mapped_column(ForeignKey("institution.id"), index=True)
+    label: Mapped[str] = mapped_column(String(80))
+    prefix: Mapped[str] = mapped_column(String(12), index=True)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by: Mapped[str] = mapped_column(String(60))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Setting(Base):
+    __tablename__ = "setting"
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)

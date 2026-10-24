@@ -1,0 +1,18 @@
+{
+  "name": "Vidya Pramaan: APAAR student registry",
+  "short_name": "Vidya Pramaan",
+  "description": "APAAR ID-based student data management and verification for AICTE-approved institutions (SIH26263 prototype).",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#14325c",
+  "theme_color": "#14325c",
+  "icons": [
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Verify a certificate QR", "url": "/verify", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

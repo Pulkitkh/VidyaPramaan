@@ -15,6 +15,8 @@ const ICONS = [
   "LuSmartphone", "LuLandmark", "LuBuilding2", "LuGraduationCap", "LuBriefcase", "LuLineChart", "LuHeartHandshake",
   "LuIndianRupee", "LuLeaf", "LuBookOpen", "LuFileText", "LuGlobe", "LuTimer", "LuFileSpreadsheet", "LuBadgeCheck",
   "LuEye", "LuAlertTriangle", "LuLanguages", "LuLayers", "LuShieldAlert", "LuFlaskConical", "LuMonitorSmartphone",
+  "LuPhone", "LuStamp", "LuHistory", "LuNetwork", "LuWifiOff", "LuUserCheck", "LuFileCheck2", "LuCalendarClock",
+  "LuGitCompare", "LuRocket", "LuSplit", "LuUsers2", "LuMap",
 ];
 const COLORS = { white: "#FFFFFF", navy: "#1F3864" };
 

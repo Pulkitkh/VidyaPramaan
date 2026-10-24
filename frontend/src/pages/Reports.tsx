@@ -1,7 +1,8 @@
 import { Download, FileSpreadsheet, FileText, Search } from "lucide-react";
 import { useState } from "react";
 import { Card, ErrorNote, PageHeader } from "../components/ui";
-import { api, fmt, withToken } from "../lib/api";
+import { api, download, fmt } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useI18n } from "../lib/i18n";
 
 interface Lookup {
@@ -19,7 +20,8 @@ const REPORTS = [
 export default function Reports() {
   const { t } = useI18n();
   const [apaar, setApaar] = useState("");
-  const [purpose, setPurpose] = useState("Approval scrutiny");
+  const { user } = useAuth();
+  const [purpose, setPurpose] = useState("Approval scrutiny for 2026-27");
   const [res, setRes] = useState<Lookup | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -41,17 +43,19 @@ export default function Reports() {
               <div className="flex-1">
                 <div className="font-semibold">{r.title}</div>
                 <p className="mt-1 text-sm text-ink-2">{r.desc}</p>
-                <a className="btn-primary mt-3" href={withToken(r.href)}><Download size={15} /> Download {r.fmt}</a>
+                <button className="btn-primary mt-3" onClick={() => download(r.href).catch((e) => setErr(e.message))}><Download size={15} /> Download {r.fmt}</button>
               </div>
             </div>
           </Card>
         ))}
       </div>
-      <Card className="mt-5" title="Statutory record lookup" subtitle="Regulator access without student consent is allowed for statutory functions, but every lookup needs a purpose and is shown in the student's access log.">
+      {err && !res && user?.role !== "AICTE_ADMIN" && <div className="mt-3"><ErrorNote message={err} /></div>}
+      {user?.role === "REGULATOR" && <p className="mt-5 text-sm text-ink-2">As a state regulator you see aggregated data and reports for {user.state}. Student-level records stay with AICTE and the institutions.</p>}
+      {user?.role === "AICTE_ADMIN" && <Card className="mt-5" title="Statutory record lookup" subtitle="Regulator access without student consent is allowed for statutory functions, but every lookup needs a purpose and is shown in the student's access log.">
         <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <div><label className="label" htmlFor="ap">APAAR ID</label><input id="ap" className="input mono" value={apaar} onChange={(e) => setApaar(e.target.value)} placeholder="12-digit APAAR ID" /></div>
           <div><label className="label" htmlFor="pp">Purpose</label><input id="pp" className="input" value={purpose} onChange={(e) => setPurpose(e.target.value)} /></div>
-          <button className="btn-primary" onClick={lookup} disabled={apaar.trim().length !== 12 || purpose.length < 5}><Search size={15} /> Look up</button>
+          <button className="btn-primary" onClick={lookup} disabled={apaar.trim().length !== 12 || purpose.length < 10}><Search size={15} /> Look up</button>
         </div>
         {err && <div className="mt-3"><ErrorNote message={err} /></div>}
         {res && (
@@ -64,7 +68,7 @@ export default function Reports() {
             </ul>
           </div>
         )}
-      </Card>
+      </Card>}
     </>
   );
 }

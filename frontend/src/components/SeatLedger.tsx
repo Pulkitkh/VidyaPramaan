@@ -22,6 +22,9 @@ export default function SeatLedger({ rows }: { rows: LedgerRow[] }) {
               <span className="tabular"><b className={`text-base ${over ? "text-status-critical" : ""}`}>{p.within_intake}</b> / {p.approved_intake}</span>
             </div>
             <div className="mt-1.5"><Meter value={p.within_intake} max={p.approved_intake} over={over} label={`${p.within_intake} of ${p.approved_intake} seats`} /></div>
+            {!over && p.approved_intake > 0 && p.within_intake / p.approved_intake >= 0.95 && (
+              <div className="mt-1 text-[11px] text-[#7a5200]">{p.within_intake === p.approved_intake ? "Full: further admissions will be rejected" : "Nearly full"}</div>
+            )}
             <div className="mt-3 space-y-1.5">
               {Object.entries(p.supernumerary).filter(([, v]) => v.cap > 0 || v.used > 0).map(([k, v]) => (
                 <div key={k} className="flex items-center gap-2 text-[11px]">

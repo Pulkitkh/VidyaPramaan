@@ -1,12 +1,16 @@
-import { ArrowRight, Building2, Database, FileCheck2, Landmark, QrCode, ScanSearch, ShieldCheck, UserRound, Users } from "lucide-react";
+import { ArrowRight, Building2, Database, FileCheck2, GraduationCap, Landmark, QrCode, Scale, ScanSearch, ShieldCheck, UserRound, Users } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { homeFor, useAuth } from "../lib/auth";
 import { ErrorNote } from "../components/ui";
+import { useI18n } from "../lib/i18n";
 
 const PERSONAS = [
   { username: "aicte.admin", title: "AICTE officer", desc: "National dashboard, risk ranking, review queue, reports", icon: Landmark },
   { username: "inst.admin", title: "Institution admin", desc: "Demo Institute of Technology, Pune: upload and fix student data", icon: Building2 },
+  { username: "university.registrar", title: "University registrar", desc: "Affiliated colleges and the APAAR + student-ID feed for printing degrees", icon: GraduationCap },
+  { username: "dte.regulator", title: "State regulator (DTE)", desc: "Aggregated monitoring and reports for one state, no student-level data", icon: Scale },
   { username: "hr.verifier", title: "Employer / verifier", desc: "Consent-based verification and QR checks", icon: ScanSearch },
   { username: "student.ananya", title: "Student", desc: "My record, credentials, consent requests, who viewed my data", icon: UserRound },
   { username: "auditor", title: "Auditor", desc: "Read-only access with tamper-evident audit trail", icon: Users },
@@ -23,6 +27,7 @@ const FLOW = [
 
 export default function Login() {
   const { login } = useAuth();
+  const { t, lang, setLang } = useI18n();
   const nav = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +57,7 @@ export default function Login() {
             </div>
           </div>
           <h1 className="mt-10 text-3xl font-semibold leading-tight text-white sm:text-4xl">
-            One student. One APAAR ID.<br />One verifiable record.
+            {t("One student. One APAAR ID.")}<br />{t("One verifiable record.")}
           </h1>
           <p className="mt-4 max-w-xl text-white/75">
             Student-level data from AICTE-approved institutions, checked against APAAR at upload, monitored for excess
@@ -62,14 +67,17 @@ export default function Login() {
             {FLOW.map((f, i) => (
               <li key={f.label} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-xs text-white/85">
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-saffron-500 text-[11px] font-semibold">{i + 1}</span>
-                {f.label}
+                {t(f.label)}
               </li>
             ))}
           </ol>
           <p className="mt-8 text-xs text-white/50">Prototype with synthetic data only. No real student, institution or APAAR record is used.</p>
         </div>
         <div className="rounded-2xl bg-white p-5 text-ink shadow-xl sm:p-6">
-          <h2 className="text-lg font-semibold">Sign in as a demo user</h2>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className="text-lg font-semibold">{t("Sign in as a demo user")}</h2>
+            <button className="btn-ghost btn-sm" onClick={() => setLang(lang === "en" ? "hi" : "en")} aria-label="Toggle language">{lang === "en" ? "हिन्दी" : "English"}</button>
+          </div>
           <p className="mt-1 text-sm text-ink-2">Production uses AICTE SSO (OIDC + MFA). Each role sees only what it is allowed to.</p>
           {error && <div className="mt-3"><ErrorNote message={error} /></div>}
           <div className="mt-4 space-y-2">
@@ -78,16 +86,17 @@ export default function Login() {
                 className="group flex w-full items-center gap-3 rounded-xl border border-line px-4 py-3 text-left transition hover:border-navy-600 hover:bg-navy-50">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-navy-50 text-navy-700"><p.icon size={18} /></div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold">{p.title}</div>
+                  <div className="text-sm font-semibold">{t(p.title)}</div>
                   <div className="text-xs text-ink-2">{p.desc}</div>
                 </div>
                 <ArrowRight size={16} className={`text-ink-3 transition group-hover:translate-x-0.5 ${busy === p.username ? "animate-pulse" : ""}`} />
               </button>
             ))}
           </div>
-          <a href="/verify" className="mt-4 block text-center text-xs text-navy-600 underline-offset-2 hover:underline">
-            Have a certificate QR? Verify it without signing in →
-          </a>
+          <div className="mt-4 flex flex-wrap justify-center gap-x-5 gap-y-1 text-xs">
+            <Link to="/verify" className="text-navy-600 underline-offset-2 hover:underline">Have a certificate QR? Verify it without signing in →</Link>
+            <Link to="/rules" className="text-navy-600 underline-offset-2 hover:underline">Rules in force (2026-27) →</Link>
+          </div>
         </div>
       </div>
     </div>

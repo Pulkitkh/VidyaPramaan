@@ -13,3 +13,6 @@ services:
         generateValue: true
       - key: VP_DEMO_MODE
         value: "1"
+      # PIN that protects "Reset demo" on the shared public site. Set it in the Render dashboard.
+      - key: VP_DEMO_PIN
+        sync: false

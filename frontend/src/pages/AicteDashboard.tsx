@@ -1,4 +1,4 @@
-import { AlertOctagon, Building2, Fingerprint, GraduationCap, ListChecks, RefreshCw, RotateCcw, ShieldAlert, Users } from "lucide-react";
+import { AlertOctagon, Building2, Fingerprint, GraduationCap, ListChecks, Phone, RefreshCw, RotateCcw, Users } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -25,6 +25,7 @@ const RULE_LABEL: Record<string, string> = {
   "CON-006": "Late admission", "DUP-002": "Dual enrolment", "APR-001": "APAAR missing", "APR-003": "APAAR not in registry",
   "DUP-003": "Same person, other APAAR", "INT-001": "Over intake", "INT-002": "Supernumerary over cap", "APR-004": "Registry mismatch",
   "CON-004": "NRI w/o country", "CON-007": "Implausible age", "CON-003": "Nationality conflict",
+  "DUP-004": "Shared contact cluster", "UPD-002": "Identity field corrected", "APR-008": "Consent not recorded",
 };
 
 const ChartTip = ({ active, payload }: { active?: boolean; payload?: { payload: { label: string; value: number; code?: string } }[] }) =>
@@ -42,7 +43,8 @@ export default function AicteDashboard() {
   const nav = useNavigate();
   const { data, error, reload } = useApi<Dashboard>("/api/dashboard/national");
   const [scanning, setScanning] = useState(false);
-  const meta = useApi<{ demo_mode: boolean }>("/api/meta");
+  const meta = useApi<{ demo_mode: boolean; demo_pin_required: boolean }>("/api/meta");
+  const [note, setNote] = useState<string | null>(null);
   useLiveEvents((e) => { if (e.type === "batch_committed" || e.type === "scan") reload(); });
 
   if (error) return <ErrorNote message={error} />;
@@ -53,9 +55,15 @@ export default function AicteDashboard() {
   const sn = Object.entries(data.supernumerary_by_type).map(([code, value]) => ({ label: code.replace("_", " / ").replace("_", " / "), value }));
 
   const resetDemo = async () => {
-    if (!window.confirm("Remove everything institutions submitted through the portal, so the demo can be run again? The audit trail is kept.")) return;
+    let pin = "";
+    if (meta.data?.demo_pin_required) {
+      pin = window.prompt("This shared demo is protected. Enter the demo PIN to reset it:") ?? "";
+      if (!pin) return;
+    } else if (!window.confirm("Remove everything institutions submitted through the portal, so the demo can be run again? The audit trail is kept.")) return;
     setScanning(true);
-    try { await api("/api/demo/reset", { method: "POST" }); await reload(); } finally { setScanning(false); }
+    setNote(null);
+    try { await api("/api/demo/reset", { method: "POST", json: { pin } }); await reload(); setNote("Demo reset. The audit trail kept a record of it."); }
+    catch (e) { setNote((e as Error).message); } finally { setScanning(false); }
   };
 
   const rescan = async () => {
@@ -78,6 +86,8 @@ export default function AicteDashboard() {
           </button>
         </>)} />
 
+      {note && <div className="mb-4 rounded-lg border border-line bg-white px-4 py-2.5 text-sm" role="status">{note}</div>}
+      {user?.role === "REGULATOR" && <div className="mb-4 rounded-lg border border-navy-100 bg-navy-50 px-4 py-2.5 text-sm">You are signed in as a state regulator: national aggregates, and institution-level detail for {user.state}. Student-level records are not shown to this role.</div>}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label={t("Approved intake")} value={fmt.int(k.approved_intake)} icon={<GraduationCap size={14} />}
           hint={`${fmt.int(k.programmes)} programmes`} />
@@ -87,21 +97,21 @@ export default function AicteDashboard() {
           hint={`${fmt.int(k.apaar_opt_out)} opted out · ${fmt.int(k.provisional_fn_oci)} FN/OCI provisional`} />
         <Stat label={t("Open review items")} value={fmt.int(k.open_findings)} icon={<ListChecks size={14} />}
           hint={`${fmt.int(k.rejected_rows)} rows rejected at upload`} />
-        <Stat label={t("High-risk institutions")} value={k.high_risk_institutions} tone="critical" icon={<ShieldAlert size={14} />}
-          hint="Risk score ≥ 70, explainable" />
         <Stat label={t("Excess admissions")} value={fmt.int(k.excess_admissions)} tone="critical" icon={<AlertOctagon size={14} />}
           hint={`${k.programmes_over_intake} programmes over approved intake`} />
         <Stat label={t("Dual enrolments")} value={fmt.int(k.dual_enrolments)} tone="warning" icon={<Building2 size={14} />}
-          hint="Same APAAR active at 2+ institutions" />
-        <Stat label="Identity duplicates" value={fmt.int(k.identity_duplicates)} tone="warning" icon={<Fingerprint size={14} />}
-          hint="Same person, different APAAR (fuzzy match)" />
+          hint="Students with one APAAR active at 2+ institutions" />
+        <Stat label={t("Identity duplicates")} value={fmt.int(k.identity_duplicates)} tone="warning" icon={<Fingerprint size={14} />}
+          hint="Probable same person under two APAAR IDs" />
+        <Stat label={t("Shared-contact clusters")} value={fmt.int(k.shared_contact_clusters)} tone="warning" icon={<Phone size={14} />}
+          hint="One phone / e-mail on 4+ students across colleges" />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_1fr]">
         <Card title="State-wise monitoring" subtitle="Tile map: every state is an equal tile, positioned approximately">
           <IndiaTileMap states={data.states} onSelect={(s) => nav(`/aicte/institutions?state=${encodeURIComponent(s)}`)} />
         </Card>
-        <Card title="Highest-risk institutions" subtitle="Isolation Forest + rule evidence, with reasons"
+        <Card title="Highest-risk institutions" subtitle={`${k.high_risk_institutions} at risk score ≥ 70 · Isolation Forest + rule evidence, compared with peers of the same type`}
           actions={<Link to="/aicte/institutions" className="text-xs font-medium text-navy-600 hover:underline">View all</Link>} pad={false}>
           <ul className="divide-y divide-line">
             {data.top_risk.slice(0, 6).map((i) => (

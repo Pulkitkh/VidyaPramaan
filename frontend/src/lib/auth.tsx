@@ -30,7 +30,10 @@ export function homeFor(role: string): string {
   switch (role) {
     case "AICTE_ADMIN":
     case "AUDITOR":
+    case "REGULATOR":
       return "/aicte";
+    case "UNIVERSITY":
+      return "/university";
     case "INSTITUTION_ADMIN":
       return "/institution";
     case "VERIFIER":

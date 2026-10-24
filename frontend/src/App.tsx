@@ -12,6 +12,8 @@ import Integration from "./pages/Integration";
 import Login from "./pages/Login";
 import Reports from "./pages/Reports";
 import ReviewQueue from "./pages/ReviewQueue";
+import Rules from "./pages/Rules";
+import University from "./pages/University";
 import StudentHome from "./pages/StudentHome";
 import Students from "./pages/Students";
 import UploadPage from "./pages/Upload";
@@ -41,6 +43,8 @@ function PublicShell({ children }: { children: ReactNode }) {
 }
 
 const AICTE = ["AICTE_ADMIN", "AUDITOR"];
+const MONITOR = [...AICTE, "REGULATOR"];
+const SIGNED_IN = [...MONITOR, "INSTITUTION_ADMIN", "VERIFIER", "STUDENT", "UNIVERSITY"];
 
 export default function App() {
   const { user } = useAuth();
@@ -48,11 +52,13 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Navigate to={user ? homeFor(user.role) : "/login"} replace />} />
-      <Route path="/aicte" element={<Guard roles={AICTE}><AicteDashboard /></Guard>} />
-      <Route path="/aicte/institutions" element={<Guard roles={AICTE}><Institutions /></Guard>} />
-      <Route path="/aicte/institutions/:id" element={<Guard roles={AICTE}><InstitutionDetail /></Guard>} />
+      <Route path="/aicte" element={<Guard roles={MONITOR}><AicteDashboard /></Guard>} />
+      <Route path="/aicte/institutions" element={<Guard roles={MONITOR}><Institutions /></Guard>} />
+      <Route path="/aicte/institutions/:id" element={<Guard roles={MONITOR}><InstitutionDetail /></Guard>} />
       <Route path="/aicte/review" element={<Guard roles={AICTE}><ReviewQueue /></Guard>} />
-      <Route path="/aicte/reports" element={<Guard roles={["AICTE_ADMIN"]}><Reports /></Guard>} />
+      <Route path="/aicte/reports" element={<Guard roles={["AICTE_ADMIN", "REGULATOR"]}><Reports /></Guard>} />
+      <Route path="/rules" element={user ? <Guard roles={SIGNED_IN}><Rules /></Guard> : <PublicShell><Rules /></PublicShell>} />
+      <Route path="/university" element={<Guard roles={["UNIVERSITY"]}><University /></Guard>} />
       <Route path="/audit" element={<Guard roles={AICTE}><Audit /></Guard>} />
       <Route path="/institution" element={<Guard roles={["INSTITUTION_ADMIN"]}><InstitutionHome /></Guard>} />
       <Route path="/institution/upload" element={<Guard roles={["INSTITUTION_ADMIN"]}><UploadPage /></Guard>} />

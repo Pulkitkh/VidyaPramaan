@@ -1,4 +1,5 @@
 """Business operations shared by the REST endpoints."""
+import math
 from collections import defaultdict
 from datetime import date
 
@@ -9,20 +10,23 @@ from . import audit, config
 from .anomaly import score_institutions
 from .apaar_registry import mask
 from .auth import User
-from .models import Enrolment, Finding, Institution, Programme, Student, UploadBatch
+from .models import Credential, Enrolment, Finding, Institution, Programme, Student, UploadBatch
 from .scan import run_scan
-from .validation import _date, validate_rows
+from .validation import _date, map_columns, validate_rows
 
 # Codes the national scan re-derives from committed data; batch copies would duplicate them.
-SCAN_OWNED = {"DUP-002", "DUP-003", "CON-006", "INT-001", "INT-002", "APR-001", "APR-003"}
+SCAN_OWNED = {"DUP-002", "DUP-003", "DUP-004", "CON-006", "INT-001", "INT-002", "APR-001", "APR-003"}
+EXIT_STATUSES = {"WITHDRAWN", "TRANSFERRED_OUT", "GRADUATED", "DROPPED"}
 
 
 def create_batch(db: Session, inst: Institution, rows: list[dict], filename: str, user: User,
-                 source: str = "CSV") -> UploadBatch:
+                 source: str = "CSV", idempotency_key: str | None = None) -> UploadBatch:
+    rows, column_map, unknown = map_columns(rows)
     results = validate_rows(db, inst, rows)
     batch = UploadBatch(
         institution_id=inst.id, filename=filename, source=source, uploaded_by=user.username,
-        total_rows=len(results), rows=rows, row_results=results,
+        total_rows=len(results), rows=rows, row_results=results, idempotency_key=idempotency_key,
+        column_map={"renamed": column_map, "ignored": unknown},
         error_rows=sum(r["status"] == "ERROR" for r in results),
         warning_rows=sum(r["status"] == "WARNING" for r in results))
     db.add(batch)
@@ -33,9 +37,17 @@ def create_batch(db: Session, inst: Institution, rows: list[dict], filename: str
     return batch
 
 
-def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
+def commit_batch(db: Session, batch: UploadBatch, user: User, scan: bool = True) -> dict:
     inst = db.get(Institution, batch.institution_id)
     created = updated = unchanged = 0
+    # Validate again against the data as it is now: another batch may have taken seats or added these
+    # students since this one was checked. What is committed is always what the rules allow today.
+    previous = {r["row_no"]: (r["status"], r["is_update"]) for r in batch.row_results}
+    batch.row_results = validate_rows(db, inst, batch.rows)
+    changed_rows = [r["row_no"] for r in batch.row_results if previous.get(r["row_no"]) != (r["status"], r["is_update"])]
+    late_rejects = sum(1 for r in batch.row_results if r["status"] == "ERROR" and previous.get(r["row_no"], ("",))[0] != "ERROR")
+    batch.error_rows = sum(r["status"] == "ERROR" for r in batch.row_results)
+    batch.warning_rows = sum(r["status"] == "WARNING" for r in batch.row_results)
     for rr in batch.row_results:
         if rr["status"] == "ERROR":
             for f in rr["findings"]:
@@ -50,11 +62,29 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
         if rr["is_update"]:
             enrol = db.get(Enrolment, rr["update_enrolment_id"])
             if enrol is not None:
+                before = {c["field"]: c["old"] for c in rr.get("changes", [])}
                 changed = _apply_update(enrol, d)
                 if changed:
                     updated += 1
+                    identity = sorted(set(changed) & {"name", "dob", "gender"})
+                    superseded = 0
+                    if identity:
+                        # A credential carries the old name / DOB: replace it rather than leave it valid.
+                        for c in db.scalars(select(Credential).where(Credential.enrolment_id == enrol.id,
+                                                                     Credential.status == "ACTIVE")):
+                            c.status, c.status_reason = "SUPERSEDED", f"{', '.join(identity)} corrected"
+                            superseded += 1
+                        db.add(Finding(institution_id=inst.id, batch_id=batch.id, enrolment_id=enrol.id,
+                                       programme_id=enrol.programme_id, source="BATCH", rule_code="UPD-002",
+                                       severity="WARNING",
+                                       message=f"{enrol.student.name}: {', '.join(identity)} changed by re-upload",
+                                       evidence={"changes": [c for c in rr.get("changes", [])
+                                                             if c["field"] in identity],
+                                                 "credentials_superseded": superseded},
+                                       rule_version=config.RULESET_VERSION))
                     audit.record(db, user.username, user.role, "RECORD_UPDATED", "enrolment", enrol.id,
-                                 {"fields": changed, "batch": batch.id})
+                                 {"fields": changed, "batch": batch.id,
+                                  "before": {k: v for k, v in before.items() if k in changed}})
                 else:
                     unchanged += 1
             continue
@@ -64,7 +94,9 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
         if student is None:
             student = Student(
                 apaar_id=d["apaar_id"] or None, name=d["name"], dob=_parse(d["dob"]),
-                gender=d["gender"], category=d["category"], father_name=d["father_name"],
+                gender=d["gender"], category=d["category"], father_name=d["father_name"] or None,
+                mother_name=d.get("mother_name") or None, guardian_name=d.get("guardian_name") or None,
+                mobile=d.get("mobile") or None, email=d.get("email") or None,
                 nationality=d["nationality"], fn_status=d["fn_status"], oci_status=d["oci_status"],
                 oci_card_no=d["oci_card_no"] or None, passport_no=d["passport_no"] or None,
                 nri_status=d["nri_status"], nri_country=d["nri_country"] or None, pwd=d["pwd"],
@@ -75,7 +107,8 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
                 student.provisional_id = f"PRV-{inst.aicte_pid[-4:]}-{student.id:06d}"
         enrol = Enrolment(
             student_id=student.id, institution_id=inst.id, programme_id=rr["programme_id"],
-            roll_no=d["roll_no"], admission_year=config.ADMISSION_YEAR, year_of_study=d["year_of_study"],
+            roll_no=d["roll_no"], admission_year=d.get("admission_year", config.ADMISSION_YEAR),
+            year_of_study=d["year_of_study"],
             admission_type=d["admission_type"], quota=d["quota"], seat_type=d["seat_type"],
             supernumerary_type=d["supernumerary_type"], admission_date=_parse(d["admission_date"]),
             batch_id=batch.id)
@@ -91,17 +124,44 @@ def commit_batch(db: Session, batch: UploadBatch, user: User) -> dict:
     batch.status = "COMMITTED"
     batch.committed_rows = created + updated
     db.flush()
+    rejected = batch.error_rows
     audit.record(db, user.username, user.role, "UPLOAD_COMMITTED", "upload_batch", batch.id,
-                 {"created": created, "updated": updated, "unchanged": unchanged, "rejected": batch.error_rows})
+                 {"created": created, "updated": updated, "unchanged": unchanged, "rejected": rejected,
+                  "changed_since_validation": len(changed_rows)})
+    result = refresh_national(db) if scan else {"queued": True}
+    return {"created": created, "updated": updated, "unchanged": unchanged, "rejected": rejected,
+            "rejected_at_commit": late_rejects, "changed_since_validation": changed_rows, "scan": result}
+
+
+def refresh_national(db: Session, actor: str = "system", role: str = "SYSTEM") -> dict:
     scan = run_scan(db)
     score_institutions(db)
-    audit.record(db, "system", "SYSTEM", "NATIONAL_SCAN", "dataset", "national", scan)
-    return {"created": created, "updated": updated, "unchanged": unchanged, "rejected": batch.error_rows,
-            "scan": scan}
+    audit.record(db, actor, role, "NATIONAL_SCAN", "dataset", "national",
+                 {k: scan[k] for k in ("findings", "new", "closed", "decisions_kept")})
+    audit.checkpoint(db)
+    return scan
 
 
-UPDATABLE_STUDENT = ("name", "gender", "category", "father_name", "nationality", "fn_status", "oci_status",
-                     "oci_card_no", "passport_no", "nri_status", "nri_country", "pwd")
+def exit_enrolment(db: Session, enrol: Enrolment, status: str, on: date, reason: str, user: User) -> dict:
+    """Record that a student left: withdrawal, transfer out, graduation or drop-out. Records are never deleted."""
+    if status not in EXIT_STATUSES:
+        raise ValueError(f"status must be one of {sorted(EXIT_STATUSES)}")
+    if enrol.status != "ACTIVE":
+        raise ValueError(f"Enrolment is already {enrol.status}")
+    enrol.status, enrol.exit_date, enrol.exit_reason = status, on, reason
+    revoked = 0
+    for c in db.scalars(select(Credential).where(Credential.enrolment_id == enrol.id, Credential.status == "ACTIVE")):
+        c.status, c.status_reason = "REVOKED", f"enrolment {status.lower().replace('_', ' ')} on {on}"
+        revoked += 1
+    audit.record(db, user.username, user.role, f"ENROLMENT_{status}", "enrolment", enrol.id,
+                 {"date": on.isoformat(), "reason": reason, "credentials_revoked": revoked})
+    db.flush()
+    return {"enrolment_id": enrol.id, "status": status, "credentials_revoked": revoked}
+
+
+UPDATABLE_STUDENT = ("name", "gender", "category", "father_name", "mother_name", "guardian_name", "nationality",
+                     "fn_status", "oci_status", "oci_card_no", "passport_no", "nri_status", "nri_country", "pwd",
+                     "mobile", "email")
 
 
 def _apply_update(enrol: Enrolment, d: dict) -> list[str]:
@@ -109,7 +169,7 @@ def _apply_update(enrol: Enrolment, d: dict) -> list[str]:
     changed = []
     s = enrol.student
     for field in UPDATABLE_STUDENT:
-        new = d[field] if isinstance(d[field], bool) else (d[field] or None)
+        new = d.get(field) if isinstance(d.get(field), bool) else (d.get(field) or None)
         if field in ("name", "gender", "category", "father_name", "nationality"):
             new = new or getattr(s, field)
         if getattr(s, field) != new:
@@ -139,14 +199,15 @@ def programme_ledger(db: Session, inst_id: int) -> list[dict]:
     counts = defaultdict(lambda: defaultdict(int))
     for pid, seat, sn, n in db.execute(
             select(Enrolment.programme_id, Enrolment.seat_type, Enrolment.supernumerary_type, func.count())
-            .where(Enrolment.institution_id == inst_id, Enrolment.status == "ACTIVE")
+            .where(Enrolment.institution_id == inst_id, Enrolment.status == "ACTIVE",
+                   Enrolment.admission_year == config.ADMISSION_YEAR)
             .group_by(Enrolment.programme_id, Enrolment.seat_type, Enrolment.supernumerary_type)):
         counts[pid]["WITHIN" if seat == "WITHIN_INTAKE" else sn] += n
     out = []
     for p in progs:
         c = counts[p.id]
-        sn = {k: {"used": c.get(k, 0),
-                  "cap": int(p.approved_intake * v)} for k, v in config.SUPERNUMERARY_CAPS.items()}
+        sn = {k: {"used": c.get(k, 0), "cap": math.floor(p.approved_intake * config.sn_cap_fraction(k, p.level))}
+              for k in config.SUPERNUMERARY_TYPES}
         out.append({"programme_id": p.id, "code": p.code, "name": p.name, "level": p.level,
                     "approved_intake": p.approved_intake, "within_intake": c.get("WITHIN", 0),
                     "excess": max(0, c.get("WITHIN", 0) - p.approved_intake),
@@ -185,6 +246,8 @@ def national_dashboard(db: Session) -> dict:
                                       (Student.fn_status | Student.oci_status)))
     findings_by_rule = dict(db.execute(select(Finding.rule_code, func.count()).where(Finding.status == "OPEN")
                                        .group_by(Finding.rule_code)).all())
+    cases = open_cases(db)
+    exited = db.scalar(select(func.count()).select_from(Enrolment).where(Enrolment.status != "ACTIVE"))
     rejected_by_rule = dict(db.execute(select(Finding.rule_code, func.count())
                                        .where(Finding.status == "REJECTED").group_by(Finding.rule_code)).all())
 
@@ -236,9 +299,14 @@ def national_dashboard(db: Session) -> dict:
                  "open_findings": sum(findings_by_rule.values()),
                  "high_risk_institutions": sum(i.risk_score >= config.RISK_ALERT_THRESHOLD for i in insts),
                  "programmes_over_intake": over_programmes, "excess_admissions": excess_total,
-                 "dual_enrolments": findings_by_rule.get("DUP-002", 0),
-                 "identity_duplicates": findings_by_rule.get("DUP-003", 0),
+                 # Cases, not finding rows: one dual enrolment is one student, even though both
+                 # institutions get a review item.
+                 "dual_enrolments": cases.get("DUP-002", 0),
+                 "identity_duplicates": cases.get("DUP-003", 0),
+                 "shared_contact_clusters": cases.get("DUP-004", 0),
+                 "exited_enrolments": exited,
                  "rejected_rows": sum(rejected_by_rule.values())},
+        "cases_by_rule": cases,
         "supernumerary_by_type": sn_types, "findings_by_rule": findings_by_rule,
         "rejected_by_rule": rejected_by_rule, "states": states,
         "gender": gender, "category": category, "level": level,
@@ -248,12 +316,35 @@ def national_dashboard(db: Session) -> dict:
     }
 
 
+def open_cases(db: Session) -> dict[str, int]:
+    """Distinct open cases per rule (a dual enrolment flagged at two institutions is one case)."""
+    cases = defaultdict(set)
+    for code, ev, fid in db.execute(select(Finding.rule_code, Finding.evidence, Finding.id)
+                                    .where(Finding.status == "OPEN")):
+        cases[code].add((ev or {}).get("case") or f"F{fid}")
+    return {k: len(v) for k, v in cases.items()}
+
+
 def student_public(s: Student, reveal: bool = False) -> dict:
     return {"id": s.id, "apaar_id": s.apaar_id if reveal else mask(s.apaar_id),
             "provisional_id": s.provisional_id, "name": s.name, "dob": s.dob, "gender": s.gender,
             "category": s.category, "nationality": s.nationality, "fn_status": s.fn_status,
             "oci_status": s.oci_status, "nri_status": s.nri_status, "nri_country": s.nri_country,
-            "pwd": s.pwd, "apaar_consent": s.apaar_consent}
+            "pwd": s.pwd, "apaar_consent": s.apaar_consent, "father_name": s.father_name,
+            "mother_name": s.mother_name, "guardian_name": s.guardian_name,
+            "mobile": s.mobile if reveal else _mask_mobile(s.mobile),
+            "email": s.email if reveal else _mask_email(s.email)}
+
+
+def _mask_mobile(v: str | None) -> str | None:
+    return f"{v[:2]}XXXXXX{v[-2:]}" if v else None
+
+
+def _mask_email(v: str | None) -> str | None:
+    if not v or "@" not in v:
+        return None
+    user, _, dom = v.partition("@")
+    return f"{user[:1]}***@{dom}"
 
 
 def enrolment_dict(e: Enrolment) -> dict:
@@ -263,4 +354,5 @@ def enrolment_dict(e: Enrolment) -> dict:
             "admission_year": e.admission_year, "year_of_study": e.year_of_study,
             "admission_type": e.admission_type, "quota": e.quota, "seat_type": e.seat_type,
             "supernumerary_type": e.supernumerary_type, "admission_date": e.admission_date,
-            "status": e.status}
+            "status": e.status, "exit_date": e.exit_date, "exit_reason": e.exit_reason,
+            "university": e.institution.university}

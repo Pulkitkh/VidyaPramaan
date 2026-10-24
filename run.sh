@@ -16,4 +16,5 @@ if [ ! -f data/vidyapramaan.db ] || [ "${RESEED:-0}" = "1" ]; then
   echo "Seeded synthetic dataset (240 institutions, ~48k students)."
 fi
 echo "Open http://localhost:8000  (API docs: http://localhost:8000/docs)"
+export VP_DEMO_MODE="${VP_DEMO_MODE:-1}"
 exec ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

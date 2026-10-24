@@ -1,14 +1,16 @@
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, MapPin } from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import SeatLedger from "../components/SeatLedger";
 import { Card, ErrorNote, PageHeader, RiskPill, RuleBadge, Spinner, riskBand } from "../components/ui";
-import { fmt, type LedgerRow, type Reason, type StoredFinding } from "../lib/api";
+import { download, fmt, type LedgerRow, type Reason, type StoredFinding } from "../lib/api";
+import { useAuth } from "../lib/auth";
 import { useApi } from "../lib/hooks";
 import FindingList from "../components/FindingList";
 
 export interface InstitutionView {
   id: number; name: string; aicte_pid: string; state: string; city: string; region: string; type: string;
-  risk_score: number; quality_score: number; reasons: Reason[]; ledger: LedgerRow[];
+  university?: string | null; risk_score: number; quality_score: number; reasons: Reason[]; ledger: LedgerRow[];
   findings_by_rule: Record<string, number>;
   batches: { id: number; filename: string; created_at: string; status: string; total_rows: number; error_rows: number; warning_rows: number; committed_rows: number }[];
 }
@@ -16,7 +18,7 @@ export interface InstitutionView {
 export function RiskPanel({ inst }: { inst: InstitutionView }) {
   const band = riskBand(inst.risk_score);
   return (
-    <Card title="Why this score" subtitle="Peer-relative deviations (robust z-score) and rule hits">
+    <Card title="Why this score" subtitle="Deviation from institutions of the same type (robust z-score), plus rule hits">
       <div className="flex items-center gap-4">
         <div className="relative h-20 w-20 shrink-0">
           <svg viewBox="0 0 36 36" className="h-20 w-20 -rotate-90">
@@ -46,24 +48,32 @@ export function RiskPanel({ inst }: { inst: InstitutionView }) {
 
 export default function InstitutionDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const canSeeRecords = user?.role === "AICTE_ADMIN" || user?.role === "AUDITOR";
+  const [err, setErr] = useState<string | null>(null);
   const { data, error } = useApi<InstitutionView>(`/api/institutions/${id}`, [id]);
-  const findings = useApi<{ total: number; items: StoredFinding[] }>(`/api/findings?institution_id=${id}&limit=100`, [id]);
+  const findings = useApi<{ total: number; items: StoredFinding[] }>(canSeeRecords ? `/api/findings?institution_id=${id}&limit=100` : null, [id]);
   if (error) return <ErrorNote message={error} />;
   if (!data) return <Spinner />;
   return (
     <>
       <Link to="/aicte/institutions" className="mb-3 inline-flex items-center gap-1 text-xs text-navy-600 hover:underline"><ArrowLeft size={13} /> All institutions</Link>
       <PageHeader title={data.name}
-        subtitle={<span className="inline-flex flex-wrap items-center gap-2"><span className="mono">{data.aicte_pid}</span>·<MapPin size={13} />{data.city}, {data.state} · {data.region} region · {data.type}</span>}
-        actions={<RiskPill score={data.risk_score} />} />
+        subtitle={<span className="inline-flex flex-wrap items-center gap-2"><span className="mono">{data.aicte_pid}</span>·<MapPin size={13} />{data.city}, {data.state} · {data.region} region · {data.type}{data.university && <> · affiliated to {data.university}</>}</span>}
+        actions={<>
+          {canSeeRecords && <button className="btn-ghost" onClick={() => download(`/api/reports/institutions/${data.id}/evidence.xlsx`).catch((e) => setErr(e.message))}>
+            <FileSpreadsheet size={15} /> Evidence pack for review / show-cause</button>}
+          <RiskPill score={data.risk_score} />
+        </>} />
+      {err && <div className="mb-3"><ErrorNote message={err} /></div>}
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="space-y-5">
           <Card title="Seat ledger" subtitle="Approved intake vs within-intake admissions, and supernumerary caps by quota">
             <SeatLedger rows={data.ledger} />
           </Card>
-          <Card title="Open review items" subtitle={`${findings.data?.total ?? 0} items`} pad={false}>
+          {canSeeRecords && <Card title="Open review items" subtitle={`${findings.data?.total ?? 0} items`} pad={false}>
             {findings.data ? <FindingList items={findings.data.items} /> : <Spinner />}
-          </Card>
+          </Card>}
         </div>
         <div className="space-y-5">
           <RiskPanel inst={data} />

@@ -1,11 +1,11 @@
 import {
-  Activity, BarChart3, BookOpenCheck, Building2, FileCode2, FileSpreadsheet, Gauge, Languages, ListChecks, LogOut,
-  Menu, QrCode, ScrollText, ShieldCheck, Upload, UserRound, Users, X,
+  Activity, BarChart3, BookOpenCheck, Building2, FileCode2, FileSpreadsheet, Gauge, GraduationCap, Languages, ListChecks,
+  LogOut, Menu, QrCode, Scale, ScrollText, ShieldCheck, Upload, UserRound, Users, X,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
-import { useLiveEvents, type LiveEvent } from "../lib/hooks";
+import { useApi, useLiveEvents, type LiveEvent } from "../lib/hooks";
 import { useI18n } from "../lib/i18n";
 
 const NAV: Record<string, { to: string; label: string; icon: ReactNode }[]> = {
@@ -15,17 +15,32 @@ const NAV: Record<string, { to: string; label: string; icon: ReactNode }[]> = {
     { to: "/aicte/review", label: "Review queue", icon: <ListChecks size={17} /> },
     { to: "/aicte/reports", label: "Reports", icon: <BarChart3 size={17} /> },
     { to: "/audit", label: "Audit trail", icon: <ScrollText size={17} /> },
+    { to: "/rules", label: "Rules in force", icon: <Scale size={17} /> },
   ],
   AUDITOR: [
     { to: "/aicte", label: "National overview", icon: <Gauge size={17} /> },
     { to: "/aicte/institutions", label: "Institutions", icon: <Building2 size={17} /> },
+    { to: "/aicte/review", label: "Review queue", icon: <ListChecks size={17} /> },
     { to: "/audit", label: "Audit trail", icon: <ScrollText size={17} /> },
+    { to: "/rules", label: "Rules in force", icon: <Scale size={17} /> },
+  ],
+  REGULATOR: [
+    { to: "/aicte", label: "National overview", icon: <Gauge size={17} /> },
+    { to: "/aicte/institutions", label: "Institutions", icon: <Building2 size={17} /> },
+    { to: "/aicte/reports", label: "Reports", icon: <BarChart3 size={17} /> },
+    { to: "/rules", label: "Rules in force", icon: <Scale size={17} /> },
+  ],
+  UNIVERSITY: [
+    { to: "/university", label: "Degree & certificate feed", icon: <GraduationCap size={17} /> },
+    { to: "/verify", label: "Verify credential", icon: <QrCode size={17} /> },
+    { to: "/rules", label: "Rules in force", icon: <Scale size={17} /> },
   ],
   INSTITUTION_ADMIN: [
     { to: "/institution", label: "Overview", icon: <Gauge size={17} /> },
     { to: "/institution/upload", label: "Upload students", icon: <Upload size={17} /> },
     { to: "/institution/students", label: "Student records", icon: <Users size={17} /> },
     { to: "/institution/api", label: "Integration API", icon: <FileCode2 size={17} /> },
+    { to: "/rules", label: "Rules in force", icon: <Scale size={17} /> },
   ],
   VERIFIER: [{ to: "/verify", label: "Verify credential", icon: <QrCode size={17} /> }],
   STUDENT: [
@@ -36,6 +51,7 @@ const NAV: Record<string, { to: string; label: string; icon: ReactNode }[]> = {
 
 const ROLE_LABEL: Record<string, string> = {
   AICTE_ADMIN: "AICTE officer", AUDITOR: "Auditor", INSTITUTION_ADMIN: "Institution", VERIFIER: "Verifier", STUDENT: "Student",
+  REGULATOR: "State regulator", UNIVERSITY: "University",
 };
 
 function describe(e: LiveEvent): string | null {
@@ -43,6 +59,7 @@ function describe(e: LiveEvent): string | null {
   if (e.type === "scan") return `National scan: ${e.findings} open findings`;
   if (e.type === "consent_requested") return "New consent request received";
   if (e.type === "consent_decided") return `Consent ${String(e.status).toLowerCase()}`;
+  if (e.type === "enrolment_exit") return `A student's exit was recorded (${String(e.status).toLowerCase().replace("_", " ")})`;
   return null;
 }
 
@@ -60,6 +77,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     }
   });
   const items = user ? NAV[user.role] ?? [] : [];
+  const meta = useApi<{ academic_year: string; ruleset_version: string }>("/api/meta");
 
   const sidebar = (
     <aside className="flex h-full w-64 flex-col bg-navy-800 text-white">
@@ -87,6 +105,7 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg">Skip to content</a>
       <div className="hidden lg:block lg:fixed lg:inset-y-0">{sidebar}</div>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
@@ -101,7 +120,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${connected ? "bg-[#e8f6e8] text-status-goodtext" : "bg-[#f1f0ec] text-ink-3"}`}>
               <Activity size={12} /> {connected ? t("Live") : "Offline"}
             </span>
-            <span className="hidden sm:inline">AY 2026-27 · Ruleset aph-demo-2026.1</span>
+            <span className="hidden sm:inline">AY {meta.data?.academic_year ?? "2026-27"} · Ruleset {meta.data?.ruleset_version ?? "…"}</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <button className="btn-ghost btn-sm" onClick={() => setLang(lang === "en" ? "hi" : "en")} aria-label="Toggle language">
@@ -120,7 +139,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6">{children}</main>
+        <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>
       {toast && (
         <div className="fixed bottom-4 right-4 z-50 flex max-w-sm items-start gap-2 rounded-lg bg-navy-800 px-4 py-3 text-sm text-white shadow-lg" role="status">

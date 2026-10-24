@@ -1,29 +1,10 @@
 """End-to-end tests over a small synthetic dataset (isolated temp database)."""
 import json
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 
-_tmp = Path(tempfile.mkdtemp(prefix="vp-test-"))
-os.environ["VP_DATA_DIR"] = str(_tmp)
-os.environ["VP_SAMPLE_CSV"] = str(_tmp / "sample.csv")
-os.environ["VP_SEED_INSTITUTIONS"] = "60"
-
-from fastapi.testclient import TestClient  # noqa: E402
-
-from app import seed  # noqa: E402
-from app.main import app  # noqa: E402
-
-SUMMARY = seed.main(60)
-client = TestClient(app)
-
-
-def login(username: str) -> dict:
-    r = client.post("/api/auth/demo-login", json={"username": username})
-    assert r.status_code == 200
-    return {"Authorization": f"Bearer {r.json()['token']}"}
+from harness import SUMMARY, client, login
 
 
 @pytest.fixture(scope="module")
@@ -50,7 +31,7 @@ def codes(batch) -> set[str]:
 
 def test_upload_flags_every_planted_defect(batch):
     expected = {"APR-001", "APR-002", "APR-003", "APR-004", "APR-005", "APR-007", "DUP-001", "DUP-002", "DUP-003",
-                "INT-001", "INT-002", "CON-001", "CON-002", "CON-004", "CON-005", "CON-007"}
+                "INT-001", "INT-002", "INT-003", "CON-001", "CON-002", "CON-004", "CON-005", "CON-007"}
     assert expected <= codes(batch)
     assert batch["total_rows"] == 77
     assert batch["error_rows"] == 12
@@ -121,24 +102,26 @@ def test_certificate_pdf():
     student = login("student.ananya")
     token = student["Authorization"].split()[1]
     eid = client.get("/api/me/record", headers=student).json()["enrolments"][0]["id"]
-    r = client.get(f"/api/enrolments/{eid}/certificate.pdf", params={"token": token})
+    r = client.get(f"/api/enrolments/{eid}/certificate.pdf", headers=student)
     assert r.status_code == 200 and r.content[:4] == b"%PDF"
+    # session tokens are never accepted in URLs
+    assert client.get(f"/api/enrolments/{eid}/certificate.pdf", params={"token": token}).status_code == 401
 
 
 def test_audit_chain_detects_tampering(aicte):
-    assert client.get("/api/audit/verify", headers=aicte).json()["valid"] is True
-    client.post("/api/audit/tamper-demo", headers=aicte).raise_for_status()
-    bad = client.get("/api/audit/verify", headers=aicte).json()
-    assert bad["valid"] is False and bad["broken_at"]
-    client.post("/api/audit/restore-demo", headers=aicte).raise_for_status()
+    ok = client.get("/api/audit/verify", headers=aicte).json()
+    assert ok["valid"] is True and ok["checkpoints_verified"] >= 1
+    edit = client.post("/api/audit/simulate", headers=aicte, json={"attack": "edit"}).json()
+    assert edit["chain_only"]["valid"] is False and edit["chain_only"]["broken_at"]
+    # nothing stored was changed by the simulation
     assert client.get("/api/audit/verify", headers=aicte).json()["valid"] is True
 
 
 def test_reports(aicte):
-    token = aicte["Authorization"].split()[1]
-    assert client.get("/api/reports/excess-intake.csv", params={"token": token}).status_code == 200
-    r = client.get("/api/reports/state-summary.xlsx", params={"token": token})
+    assert client.get("/api/reports/excess-intake.csv", headers=aicte).status_code == 200
+    r = client.get("/api/reports/state-summary.xlsx", headers=aicte)
     assert r.status_code == 200 and r.content[:2] == b"PK"
+    assert client.get("/api/reports/excess-intake.csv").status_code == 401
 
 
 def test_reupload_after_commit_is_update_not_new_admission(inst, batch):
@@ -225,9 +208,9 @@ def committed(inst):
     return b
 
 
-def test_rule_catalogue_has_25_explained_rules(committed):
+def test_rule_catalogue_has_31_explained_rules(committed):
     from app.validation import RULES
-    assert len(RULES) == 25
+    assert len(RULES) == 31
     for row in committed["rows"]:
         for f in row["findings"]:
             assert f["code"] in RULES and f["message"] and isinstance(f["evidence"], dict) and f["rule_version"]
@@ -267,6 +250,16 @@ def test_auditor_is_read_only(aicte):
     assert client.post(f"/api/findings/{f['id']}/decision", headers=aud, json={"decision": "DISMISSED"}).status_code == 403
     assert client.post("/api/demo/reset", headers=aud).status_code == 403
     assert client.post("/api/scan", headers=aud).status_code == 403
+    # reading certificate data never issues a credential on the auditor's behalf
+    from app.db import SessionLocal
+    from app.models import AuditEvent, Credential, Enrolment
+    with SessionLocal() as db:
+        issued = {c.enrolment_id for c in db.query(Credential)}
+        eid = next(e.id for e in db.query(Enrolment).limit(500) if e.id not in issued)
+        before = db.query(AuditEvent).count()
+    assert client.get(f"/api/v1/certificate-data/{eid}", headers=aud).status_code == 404
+    with SessionLocal() as db:
+        assert db.query(AuditEvent).count() == before
 
 
 def test_consent_revocation_and_access_log():
@@ -304,9 +297,8 @@ def test_excel_template_has_dropdowns_and_report_has_diversity(aicte):
     from openpyxl import load_workbook
     wb = load_workbook(_io.BytesIO(client.get("/api/institution/template.xlsx").content))
     assert len(wb.active.data_validations.dataValidation) >= 9
-    token = aicte["Authorization"].split()[1]
-    rep = load_workbook(_io.BytesIO(client.get("/api/reports/state-summary.xlsx", params={"token": token}).content))
-    assert {"State summary", "Findings by rule", "Diversity"} <= set(rep.sheetnames)
+    rep = load_workbook(_io.BytesIO(client.get("/api/reports/state-summary.xlsx", headers=aicte).content))
+    assert {"State summary", "Findings by rule", "Diversity", "Ruleset"} <= set(rep.sheetnames)
 
 
 def test_spa_route_cannot_read_files_outside_the_build():
@@ -316,4 +308,4 @@ def test_spa_route_cannot_read_files_outside_the_build():
     # frontend/dist -> ../../backend/app/config.py always exists, so an escape would be visible.
     for prefix in ("%2e%2e/%2e%2e/", "..%2f..%2f", "%2e%2e%2f%2e%2e%2f"):
         r = client.get(f"/{prefix}backend/app/config.py")
-        assert b"SUPERNUMERARY_CAPS" not in r.content, prefix
+        assert b"RULES_FILE" not in r.content, prefix

@@ -1,0 +1,81 @@
+label,kind,gender,name_a,parent_a,dob_a,name_b,parent_b,dob_b,note
+1,variant,M,Mohammed Irfan,Abdul Rashid,2007-04-12,Mohd Irfan,Abdul Rashid,2007-04-12,Mohd abbreviation
+1,variant,M,Md Salim Khan,Shri Anwar Khan,2006-11-02,Mohammad Salim Khan,Anwar Khan,2006-11-02,Md and honorific
+1,variant,F,Lakshmi Narayanan,Narayanan Iyer,2007-01-19,Laxmi Narayan,Narayanan Iyer,2007-01-19,ksh/x and -an
+1,variant,M,Sanjay Kumar,Ramesh Prasad,2006-08-30,Sanjay,Ramesh Prasad,2006-08-30,optional Kumar
+1,variant,M,R. Karthik,Ramasamy Pillai,2007-05-05,Karthik Ramasamy,Ramasamy Pillai,2007-05-05,south Indian initial
+1,variant,M,Venkata Sai Krishna,Venkata Rao,2006-12-14,V S Krishna,Venkata Rao,2006-12-14,initials
+1,variant,F,Gurpreet Kaur,Harjit Singh,2007-03-03,Gurpreet Kaur Sandhu,Harjit Singh Sandhu,2007-03-03,surname added
+1,variant,F,Pooja Devi,Ram Babu,2006-09-21,Puja Kumari,Ram Babu,2006-09-21,oo/u and Devi/Kumari
+1,variant,M,Shekhar Rao,Mohan Rao,2007-02-11,Sekhar Rao,Mohan Rao,2007-02-11,sh/s
+1,variant,M,Priyank Joshi,Late Dinesh Joshi,2007-06-25,Priyank Joshi,Dinesh Joshi,2007-06-25,Late honorific
+1,variant,F,Priyanka Sharma,Anil Sharma,2006-10-09,Priynka Sharma,Anil Sharma,2006-10-09,dropped letter
+1,variant,F,Ananya Kulkarni,Suresh Kulkarni,2008-03-14,Kulkarni Ananya,Suresh Kulkarni,2008-03-14,surname first
+1,variant,M,Rajeev Menon,Gopal Menon,2007-07-07,Rajiv Menon,Gopal Menon,2007-07-07,ee/i
+1,variant,M,Vishwanath Hegde,Shri Ganapati Hegde,2006-04-28,Vishvanath Hegde,Ganapati Hegde,2006-04-28,w/v
+1,variant,F,Sushmita Banerjee,Prabir Banerjee,2007-08-16,Susmita Banerjee,Prabir Banerjee,2007-08-16,sh/s
+1,variant,M,Abhishek Chaudhary,Rakesh Chaudhary,2006-05-02,Abhishek Chaudhary,Rakesh Chaudhary,2006-02-05,day and month swapped
+1,variant,F,Meenakshi Sundaram,Sundaram K,2007-09-10,Minakshi Sundaram,Sundaram K,2007-09-10,ee/i
+1,variant,M,Thirumalai Selvan,Murugan,2006-01-24,Tirumalai Selvan,Murugan,2006-01-24,th/t
+1,variant,M,Kunal Bhattacharya,Partha Bhattacharya,2007-11-30,Kunal Bhattacharjee,Partha Bhattacharjee,2007-11-30,Bengali surname spelling
+1,variant,F,Fatima Shaikh,Shri Iqbal Shaikh,2006-06-06,Fatima Sheikh,Iqbal Sheikh,2006-06-06,Shaikh/Sheikh
+1,variant,M,Rahul Sharma,Vinod Sharma,2007-02-27,राहुल शर्मा,विनोद शर्मा,2007-02-27,cross-script (Latin vs Devanagari)
+1,variant,F,Divya Nair,Krishnan Nair,2007-12-01,Divya K Nair,Krishnan Nair,2007-12-01,middle initial
+1,variant,M,Harpreet Singh,Balwinder Singh,2006-03-17,Harpreet Singh Gill,Balwinder Singh Gill,2006-03-17,surname added
+1,variant,M,Sk Ashraf Ali,Sk Kader Ali,2007-04-04,Sheikh Ashraf Ali,Sheikh Kader Ali,2007-04-04,Sk abbreviation
+1,variant,F,Bhagyashree Patil,Shrikant Patil,2006-10-31,Bhagyashri Patil,Shrikant Patil,2006-10-31,ee/i
+1,variant,M,Chandrasekhar Reddy,Ramachandra Reddy,2007-05-19,Chandrashekar Reddy,Ramachandra Reddy,2007-05-19,shekhar/sekhar
+1,variant,F,Kavitha Ramesh,Ramesh S,2006-07-23,Kavita Ramesh,Ramesh S,2006-07-23,th/t
+1,variant,M,Yogesh Kumar Yadav,Mahendra Yadav,2007-08-08,Yogesh Yadav,Mahendra Yadav,2007-08-08,optional Kumar
+1,variant,F,Swathi Reddy,Narayana Reddy,2006-12-12,Swati Reddy,Narayana Reddy,2006-12-12,th/t
+1,variant,M,Mohammed Faizan,Mohammed Yusuf,2007-01-01,Mohd. Faizan,Md. Yusuf,2007-01-01,Mohd and Md on both
+1,variant,M,Bablu Kumar,Ram Lakhan,2006-09-09,Ravi Kumar,Ram Lakhan,2006-09-09,nickname vs given name
+1,variant,F,Sunita Verma,Om Prakash,2007-03-29,Sunita Sharma,Om Prakash,2007-03-29,surname changed in records
+1,variant,M,Nitin Agarwal,Sunil Agarwal,2006-11-11,Nitin Aggarwal,Sunil Aggarwal,2006-11-11,doubled letter
+1,variant,F,Jyothi Lakshmi,Srinivas,2007-06-14,Jyoti Laxmi,Srinivas,2007-06-14,th/t and ksh/x
+1,variant,M,Saurabh Pandey,Shri Rajendra Pandey,2006-02-02,Sourabh Pandey,Rajendra Pandey,2006-02-02,au/ou
+1,variant,F,Ishita Ghosh,Amitava Ghosh,2007-10-10,Ishita Ghose,Amitava Ghose,2007-10-10,Ghosh/Ghose
+1,variant,M,Arvind Swamy,Krishna Swamy,2006-05-15,Aravind Swamy,Krishna Swamy,2006-05-15,inserted vowel
+1,variant,F,Sowmya Rao,Prakash Rao,2007-07-27,Soumya Rao,Prakash Rao,2007-07-27,ow/ou
+1,variant,M,Deepak Kumar Singh,Ajay Singh,2006-08-18,Dipak Singh,Ajay Singh,2006-08-18,ee/i and optional Kumar
+1,variant,F,Shalini Mishra,Rakesh Mishra,2007-04-22,Shalini Misra,Rakesh Misra,2007-04-22,sh/s in surname
+0,twin,M,Rohit Sharma,Vinod Sharma,2007-02-27,Mohit Sharma,Vinod Sharma,2007-02-27,rhyming twins
+0,twin,M,Ramesh Patel,Kanubhai Patel,2006-06-15,Rajesh Patel,Kanubhai Patel,2006-06-15,twins one letter apart
+0,twin,M,Arjun Reddy,Venkat Reddy,2007-09-01,Arun Reddy,Venkat Reddy,2007-09-01,twins one letter apart
+0,twin,F,Sneha Iyer,Mahesh Iyer,2006-12-20,Neha Iyer,Mahesh Iyer,2006-12-20,rhyming twins
+0,twin,M,Luv Kumar,Satish Kumar,2007-03-11,Kush Kumar,Satish Kumar,2007-03-11,twins
+0,twin,F,Riya Desai,Hemant Desai,2006-04-04,Siya Desai,Hemant Desai,2006-04-04,rhyming twins
+0,twin,M,Aarav Mehta,Nilesh Mehta,2007-05-30,Aarush Mehta,Nilesh Mehta,2007-05-30,twins with shared prefix
+0,twin,F,Kavya Nair,Suresh Nair,2006-10-18,Divya Nair,Suresh Nair,2006-10-18,rhyming twins
+0,twin,F,Isha Gupta,Manoj Gupta,2007-08-25,Disha Gupta,Manoj Gupta,2007-08-25,rhyming twins
+0,twin,M,Varun Joshi,Prakash Joshi,2006-01-13,Tarun Joshi,Prakash Joshi,2006-01-13,rhyming twins
+0,twin,M,Amit Verma,Rajendra Verma,2007-11-05,Sumit Verma,Rajendra Verma,2007-11-05,rhyming twins
+0,twin,F,Priya Singh,Ashok Singh,2006-07-07,Supriya Singh,Ashok Singh,2006-07-07,name contained in sibling's
+0,twin,M,Ram Yadav,Shiv Yadav,2007-02-14,Shyam Yadav,Shiv Yadav,2007-02-14,twins
+0,twin,F,Sita Kumari,Ram Prasad,2006-09-27,Gita Kumari,Ram Prasad,2006-09-27,rhyming twins
+0,twin,F,Anjali Rao,Mohan Rao,2007-06-02,Anju Rao,Mohan Rao,2007-06-02,twin with short name
+0,twin,M,Sahil Khan,Imran Khan,2006-03-23,Nikhil Khan,Imran Khan,2006-03-23,rhyming twins
+0,twin,F,Nisha Patil,Vijay Patil,2007-12-29,Asha Patil,Vijay Patil,2007-12-29,twins
+0,twin,M,Karan Malhotra,Rajiv Malhotra,2006-05-09,Arjun Malhotra,Rajiv Malhotra,2006-05-09,twins different names
+0,twin,F,Mira Chopra,Deepak Chopra,2007-01-31,Tara Chopra,Deepak Chopra,2007-01-31,rhyming twins
+0,twin,M,Lakhan Singh,Ram Singh,2006-08-12,Lalan Singh,Ram Singh,2006-08-12,twins one letter apart
+0,twin,M,Hari Prasad,Shankar Prasad,2007-04-16,Giri Prasad,Shankar Prasad,2007-04-16,rhyming twins
+0,twin,F,Lata Devi,Mohan Lal,2006-11-21,Asha Devi,Mohan Lal,2006-11-21,twins with common suffix
+0,twin,M,Krishna Murthy,Gopal Murthy,2007-07-19,Balram Murthy,Gopal Murthy,2007-07-19,twins
+0,twin,F,Shreya Bose,Arup Bose,2006-02-08,Shruti Bose,Arup Bose,2006-02-08,twins with shared prefix
+0,twin,M,Manish Tiwari,Ravi Tiwari,2007-10-03,Mahesh Tiwari,Ravi Tiwari,2007-10-03,twins with shared prefix
+0,common,M,Rahul Kumar,Suresh Kumar,2007-01-01,Rahul Kumar,Mahesh Kumar,2007-01-01,common name and default DOB
+0,common,F,Priya Sharma,Rajesh Sharma,2007-01-01,Priya Sharma,Ramesh Sharma,2007-01-01,common name and default DOB
+0,common,M,Mohammed Ali,Abdul Karim,2006-06-15,Mohammed Ali,Abdul Rahim,2006-06-15,common name
+0,common,M,Amit Singh,Vijay Singh,2006-08-15,Amit Singh,Ajay Singh,2006-08-15,common name
+0,common,F,Pooja Gupta,Sanjay Gupta,2007-05-05,Pooja Gupta,Manoj Gupta,2007-05-05,common name
+0,common,M,Arjun Nair,Gopi Nair,2007-03-03,Arjun Nair,Gopal Nair,2007-03-03,fathers one letter apart
+0,common,F,Anjali Verma,Rakesh Verma,2006-12-12,Anjali Verma,Rakesh Kumar Verma,2006-12-12,indistinguishable without APAAR
+0,common,M,Rohan Das,Subrata Das,2007-07-07,Rohan Das,Subrata Das,2007-07-07,two different people with identical records
+0,common,M,Vikas Yadav,Ramesh Yadav,2006-09-09,Vikash Yadav,Suresh Yadav,2006-09-09,different fathers
+0,common,F,Neha Joshi,Prakash Joshi,2007-02-02,Neha Joshi,Prakash Josh,2007-02-02,common name and near father
+0,common,M,Suresh Babu,Krishnan,2006-04-14,Suresh Babu,Krishna,2006-04-14,south Indian single-name fathers
+0,common,F,Kiran Kaur,Gurmeet Singh,2007-11-11,Kiran Kaur,Gurmit Singh,2007-11-11,common name
+0,common,M,Rajesh Kumar,Ram Kumar,2006-01-26,Rajesh Kumar,Ram Kumar,2006-01-26,two different people with identical records
+0,common,F,Sunita Devi,Shyam Lal,2007-08-15,Sunita Devi,Shyam Sundar,2007-08-15,common name
+0,common,M,Sachin Patil,Dattatray Patil,2006-10-02,Sachin Pawar,Dattatray Pawar,2006-10-02,different surname families

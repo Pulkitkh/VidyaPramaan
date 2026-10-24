@@ -5,9 +5,15 @@ Prototype for Smart India Hackathon 2026, problem statement **SIH26263** (AICTE,
 
 > One student. One APAAR ID. One verifiable record.
 
+Live demo: **https://vidya-pramaan-sih26263.onrender.com** (free instance: the first visit after a quiet spell can take up to a minute to wake).
+
 All institutions, students and APAAR IDs in this repository are **synthetic**. Nothing here connects to a real APAAR, DigiLocker or AICTE system.
 
 ![AICTE national dashboard](docs/screenshots/10_aicte_dashboard.png)
+
+## Why it exists
+
+NAD/DigiLocker already verifies degrees with the student's consent, ABC holds credits and AISHE publishes aggregate statistics two to three years late. What AICTE does not have is a **near-real-time, student-level view that reconciles every admission against approved intake and catches the same student enrolled twice**. Excess admission costs an institution five times the fee per excess student (*FORE School of Management v AICTE*, 2019), so evidence has to be right. Vidya Pramaan is that reconciliation and verification layer. It consumes APAAR, does not replace it, and produces the APAAR-linked records that NAD/ABC and AISHE expect.
 
 ## What it does
 
@@ -15,155 +21,139 @@ Institution → student data upload → APAAR validation → data verification �
 
 | PS requirement | Where it lives in the prototype |
 |---|---|
-| 1. Secure upload/update API keyed on APAAR | Excel / CSV upload screen (re-uploads update existing records) + `POST /api/v1/students:validate` and `:submit` (JSON) |
-| 2. Intake, enrolment, supernumerary, NRI, OCI, FN fields | Upload template columns; per-programme seat ledger with supernumerary caps |
-| 3. Automated validation (duplicates, invalid/missing APAAR, excess intake, inconsistencies, cross-institution duplicates) | `backend/app/validation.py` (25 rule codes) + `backend/app/scan.py` (national scan) |
-| 4. Real-time dashboards for AICTE and institutions | AICTE national overview (live via Server-Sent Events), institution overview |
-| 5. Secure verification for stakeholders | Public QR verification + consent-based verification (student approves by OTP) |
-| 6. Verifiable student records | W3C Verifiable Credential signed with Ed25519, compact signed QR token |
-| 7. Integration with existing systems | REST API with OpenAPI docs at `/docs`; registry adapter for DigiLocker / API Setu |
-| 8. Security, privacy, RBAC, audit, consent | Role-based access, masked APAAR IDs, consent ledger, student-visible access log, hash-chained audit log |
-| 9. Reports | Excess-intake CSV, state summary XLSX (intake, utilisation, risk, findings, diversity) |
-| 10. APAAR ID + student ID on certificates | Certificate PDF with APAAR ID, roll number and verification QR; `GET /api/v1/certificate-data/{id}` |
+| 1. Secure upload/update API keyed on APAAR | Excel / CSV upload, with ERP column names recognised automatically; re-uploads show a field-by-field correction preview; `POST /api/v1/students:validate` and `:submit` with per-institution API keys and idempotency keys |
+| 2. Intake, enrolment, supernumerary, NRI, OCI, FN fields | Upload template; per-programme seat ledger; supernumerary caps by programme level from the 2026-27 rules file |
+| 3. Automated validation (duplicates, invalid/missing APAAR, excess intake, inconsistencies, cross-institution duplicates) | `validation.py` (31 rule codes) + `scan.py` (national scan: dual enrolment, identity duplicates, shared-contact clusters, intake overruns) |
+| 4. Real-time dashboards for AICTE and institutions | AICTE national overview and institution overview, updated live over Server-Sent Events |
+| 5. Secure verification for AICTE, institutions, employers and other regulators | Public QR check (also on the device, offline); consent-based verification with OTP; state-regulator role; university role |
+| 6. Verifiable student records | W3C-style credential signed with Ed25519 and a compact signed QR; credentials are superseded on correction and revoked on exit |
+| 7. Integration with existing systems | REST API with OpenAPI at `/docs`; registry adapter for DigiLocker / API Setu; signed audit checkpoints anyone can archive |
+| 8. Security, privacy, RBAC, audit, consent | 7 roles; masked IDs; explicit consent (never assumed); student-visible access log; hash-chained audit with signed checkpoints. See [docs/SECURITY.md](docs/SECURITY.md) |
+| 9. Reports | Excess-intake CSV, state summary XLSX (with the ruleset used), per-institution evidence pack for review or show-cause |
+| 10. APAAR ID + student ID on certificates | University degree-print feed (APAAR ID + roll number + verification QR); certificate PDF; `GET /api/v1/certificate-data/{id}` |
 
-### Beyond collection
+### Design choices that matter
 
-- **Explainable validation.** Every flag has a stable rule code, severity, plain-language message, evidence and ruleset version.
-- **Live seat ledger.** Admission #61 in a 60-seat programme is rejected at upload. Supernumerary quotas (FN/OCI/PIO, TFW, lateral, EWS) are capped separately and configured in `backend/app/config.py`.
-- **Cross-institution identity matching.** The same APAAR active at two institutions (DUP-002), and the same person under a different APAAR, found by blocking on date of birth and fuzzy-matching names and father's names (DUP-003).
-- **Explainable risk score.** An Isolation Forest over peer-relative features plus rule evidence ranks institutions, with the reasons shown.
-- **Consent-first verification.** Verifiers request specific fields. The student approves with an OTP, sees every access, and can revoke.
-- **Inclusive by design.** Students who decline APAAR, and FN/OCI students (APAAR needs Aadhaar-based KYC), get a provisional ID. They are noted (APR-005 / APR-007), not rejected.
-- **Tamper-evident audit.** Each audit event hashes the previous one. The audit screen can simulate a direct database edit and shows where the chain breaks.
+- **Regulatory numbers are data, not code.** `backend/app/rules/aicte_2026_27.json` holds the 2026-27 caps (FN/OCI/PIO 15% UG, 25% PG per the 2026-27 handbook addendum), the admission window and the penalty rule, each with its source and a `verified` flag. A circular is a new file, not a release. The rules are shown in the app under *Rules in force*.
+- **Identity matching built for Indian names.** Spelling variants match: Mohd/Mohammed, Laxmi/Lakshmi, V S Krishna/Venkata Sai Krishna, honorifics, day/month swaps, Devanagari and Tamil text. Twins and rhyming siblings (Rohit/Mohit) do not, because a changed letter in a given name never matches. On a held-out, hand-labelled set the matcher reaches precision 0.79 and recall 0.92; the plain fuzzy matcher it replaced scored 0.65 and 0.68 (`python -m scripts.identity_eval`).
+- **Decisions are remembered.** Every finding has a fingerprint. An officer's resolved, dismissed or escalated decision (a reason is required) is not re-opened by the next scan, and open items keep their IDs.
+- **Nothing is silently changed.** A re-upload shows the before/after of every field. Identity changes (name, date of birth, gender) also raise a review item and replace the credential, so an old QR shows *superseded*.
+- **The commit is re-validated.** If another batch took seats or added the same students after validation, submission re-checks against the data as it is then. Two batches cannot both claim seat #60.
+- **Lifecycle.** Withdrawal, transfer out, drop-out and graduation are recorded, not deleted. The credential is revoked and duplicate-enrolment flags clear on the next scan. Continuing students (admitted in earlier years) are accepted without taking this year's seats.
+- **Shared-contact clusters.** One mobile number or e-mail on four or more students across colleges (agent-filled or ghost admissions) is flagged and drawn as a graph. Siblings sharing a parent's phone are not.
+- **Inclusive by design.** Students who decline APAAR and FN/OCI students get a provisional ID. A mother's or guardian's name is enough. Consent is recorded explicitly; a blank is flagged, never assumed.
+- **Explainable risk.** An Isolation Forest plus rule evidence ranks institutions against peers of the same type, with the reasons shown. Scores order the review queue; they are not findings of wrongdoing.
 
 ## Quick start
 
 Requires Python 3.11+ and Node 18+.
 
 ```bash
-./run.sh                 # installs, seeds synthetic data, builds the UI, serves on :8000
+./run.sh                 # installs, seeds synthetic data, builds the UI, serves on :8000 (demo mode)
 RESEED=1 ./run.sh        # start again from a fresh dataset
 ```
 
 Open http://localhost:8000 and choose a demo user. API reference: http://localhost:8000/docs.
 
 **Demo day tips**
-- To repeat the walkthrough, sign in as the AICTE officer and press **Reset demo** on the national overview. It removes everything submitted through the portal; the audit trail is kept and records the reset.
-- To let judges scan the certificate QR with a phone, start the server with the laptop's address so the QR points to it, for example `VP_PUBLIC_BASE_URL=http://192.168.1.20:8000 ./run.sh`, and keep the phone on the same Wi-Fi.
-- Sessions expire after 8 hours; sign in again if a screen asks you to.
+- To repeat the walkthrough, sign in as the AICTE officer and press **Reset demo**. On the public site this needs the demo PIN (`VP_DEMO_PIN`). The reset undoes everything submitted through the portal; the audit trail is kept and records the reset.
+- The tamper demonstrations on the Audit screen run on an in-memory copy, so visitors cannot leave the shared demo broken.
+- To let judges scan the certificate QR with a phone on a local run, start the server with the laptop's address, for example `VP_PUBLIC_BASE_URL=http://192.168.1.20:8000 ./run.sh`.
+- The app is installable (PWA). The QR verification page checks signatures on the device and still works without a connection.
 
 Manual steps:
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt
 cd frontend && npm install && npm run build && cd ..
-cd backend && ../.venv/bin/python -m app.seed && ../.venv/bin/uvicorn app.main:app --port 8000
+cd backend && ../.venv/bin/python -m app.seed && VP_DEMO_MODE=1 ../.venv/bin/uvicorn app.main:app --port 8000
 ```
 
-For frontend development, run `npm run dev` in `frontend/` (it proxies `/api` to port 8000).
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `VP_SECRET_KEY` | Signs sessions; the Ed25519 issuer key is derived from it (HKDF), so it stays the same across deploys. Required in any deployment. |
+| `VP_ISSUER_KEY` | Optional: an explicit issuer key (PEM or base64 PEM), e.g. from a secrets manager. |
+| `VP_DEMO_MODE` | `1` enables one-click demo sign-in, on-screen OTPs and demo reset. Off by default. |
+| `VP_DEMO_PIN` | PIN required to reset the shared demo. |
+| `VP_DATABASE_URL` | SQLite by default; PostgreSQL 16 is tested. |
+| `VP_PUBLIC_BASE_URL` | Address printed in QR codes (Render's URL is picked up automatically). |
+| `VP_RULES_FILE` | Ruleset for another academic year. |
 
 ## Deploy a public demo (free)
 
-The repository includes a `Dockerfile` (UI + API in one container, synthetic data baked in) and a Render blueprint (`render.yaml`). The container was tested locally under a 512 MB memory limit: it starts in about 5 seconds and uses about 210 MB after the full demo.
+The repository includes a `Dockerfile` (UI + API in one container, synthetic data baked in) and a Render blueprint (`render.yaml`). The image contains no signing key: on first start the seeded credentials and audit checkpoints are re-signed with the key derived from `VP_SECRET_KEY`, and the rotation is written to the audit trail.
 
-**Render (free plan)**
-1. Sign in at [render.com](https://render.com) with GitHub and allow access to this repository.
-2. **New → Blueprint** → pick `Pulkitkh/VidyaPramaan` → **Apply**. The first build takes about 5–10 minutes.
-3. Open `https://<service-name>.onrender.com`. QR codes automatically use this address.
+**Render (free plan):** New → Blueprint → pick this repository → Apply, then set `VP_DEMO_PIN` in the service's environment. **Any Docker host:** `docker build -t vidya-pramaan . && docker run -p 8000:8000 -e VP_SECRET_KEY=<random> -e VP_DEMO_MODE=1 -e VP_PUBLIC_BASE_URL=https://<your-host> vidya-pramaan`
 
-Free instances sleep after about 15 minutes without traffic, so the first visit after a pause can take up to a minute. Each restart returns to the clean demo dataset.
+## Seven roles, one demo script
 
-**Any Docker host:** `docker build -t vidya-pramaan . && docker run -p 8000:8000 -e VP_SECRET_KEY=<random> -e VP_PUBLIC_BASE_URL=https://<your-host> vidya-pramaan`
-
-## Five-minute demo script
-
-1. **Institution admin** → Overview shows B.Tech CSE has no data yet → **Upload students** (Excel or CSV) → *Try the demo file*. 77 rows: 65 accepted, 6 with review flags, 12 rejected, with codes for missing / invalid / unregistered APAAR, registry mismatch, duplicates within the file and across institutions, admissions #61–#63 beyond intake, the 4th TFW seat over its cap, FN without passport, OCI without card, and more.
-2. **Submit 65 valid rows to AICTE.** The national scan re-runs. The seat ledger shows 60/60 and never exceeds intake.
-3. **AICTE officer** → National overview: KPIs, state tile map, highest-risk institutions with reasons → open one to see its seat ledger and why it scored high.
-4. **Review queue** → filter `DUP-003` → open an item: both records side by side with the evidence → resolve, dismiss or escalate (recorded in the audit trail).
-5. **Employer / verifier** → request consent for the student's APAAR (fields: enrolment status, programme, institution).
-6. **Student** → approve with the demo OTP; see the credential QR, download the certificate PDF, and check who accessed the record.
-7. **Employer** → *Fetch result*: only the approved fields are shown. Sign out and open the QR link: **Verified**. Change one character of the token and it fails.
-8. **AICTE officer** → **Audit trail** → *Verify chain* → *Simulate DB tampering* → tampering is detected at the edited event → *Restore*.
-
-## Measured on the synthetic dataset
-
-`cd backend && python -m scripts.benchmark` (on a freshly seeded database). Result in [`docs/benchmark.json`](docs/benchmark.json):
-
-| Metric | Result |
+| Sign in as | Try this |
 |---|---|
-| Planted defect types caught in the upload file | 16 / 16 |
-| False flags on clean rows in the upload file | 0 of 56 |
-| Planted dual enrolments found (DUP-002) | 181 / 181 |
-| Planted same-person-different-APAAR cases found (DUP-003) | 60 / 60 |
-| Planted anomalous institutions in the top-42 risk ranking | 41 / 42 |
-| Validate 77 uploaded rows | 57 ms |
-| National scan over 48,053 enrolments | ≈1 s |
+| Institution admin | Overview → **Upload students** → *Try the demo file*: 77 rows, 65 accepted (6 with review flags), 12 returned with reasons. Submit; the AICTE dashboard updates live. Record a student's transfer under *Student records*. Create an ERP API key under *Integration API*. |
+| AICTE officer | National overview → highest-risk institution → *Why this score* → **Evidence pack**. Review queue → `DUP-003` (matcher's reasons, side by side) → `DUP-004` (shared-contact graph) → decide with a reason. Audit trail → *Edit and recompute every hash*: the plain chain is fooled, the signed checkpoints are not. |
+| University registrar | Degree & certificate feed: APAAR ID + student ID for each affiliated college, CSV for printing, QR issued on request. |
+| State regulator (DTE) | Aggregated dashboard and reports for one state; no student-level screens. |
+| Employer / verifier | Request consent for the student's APAAR (pick fields). |
+| Student | Approve with the demo OTP; see the credential, the certificate PDF, and every access to the record. |
+| Anyone (signed out) | Open the QR link: **Verified**, with the signature also checked on the device. Change one character and it fails. |
 
-These numbers come from synthetic data with known, planted anomalies. Real data will be noisier, so thresholds are configurable and every flag goes to a human reviewer.
+## Measured
 
-## Architecture
+`cd backend && python -m app.seed && python -m scripts.benchmark` → [`docs/benchmark.json`](docs/benchmark.json).
 
-```
-frontend/ (React + TypeScript + Tailwind + Recharts)
-   │  REST + Server-Sent Events
-backend/app/
-   main.py            FastAPI routes, RBAC, reports, SPA hosting
-   validation.py      row-level rule engine (25 rule codes)
-   scan.py            national scan: intake overruns, dual enrolment, identity duplicates, registry gaps
-   anomaly.py         Isolation Forest + rule evidence → institution risk score with reasons
-   apaar_registry.py  registry adapter: MockApaarRegistry now, DigiLocker / API Setu stub for production
-   credentials.py     W3C VC + compact QR token, Ed25519 signatures, public JWK
-   certificates.py    certificate PDF with APAAR ID, student ID and QR
-   audit.py           hash-chained, append-only audit log
-   seed.py            synthetic national dataset with planted anomalies + demo upload file
-```
-
-Production would swap in PostgreSQL (row-level security, encrypted PII columns, partitioning by academic year), AICTE SSO / Keycloak (OIDC + MFA), the DigiLocker / API Setu connector once AICTE is onboarded as a partner, and hosting on NIC / MeghRaj for data localisation.
-
-## Rule catalogue
-
-| Code | Severity | Meaning |
+| Check | Result | What it means |
 |---|---|---|
-| SCH-001/002/003 | Error | Missing field, invalid value, invalid date |
-| PRG-001 | Error | Programme not approved for this institution |
-| APR-001 | Error | APAAR missing and no consent refusal recorded |
-| APR-002 / 003 / 006 | Error | APAAR format invalid / not in registry / deactivated |
-| APR-004 | Warning | Name or date of birth differs from the registry |
-| APR-005 | Info | Student declined APAAR; provisional ID issued |
-| APR-007 | Info | FN / OCI student; APAAR not applicable; provisional ID issued |
-| DUP-001 | Error | Duplicate APAAR or roll number within the upload |
-| DUP-002 | Warning | Already actively enrolled at another institution |
-| DUP-003 | Warning | Probably the same person under a different APAAR |
-| UPD-001 | Info | Existing record will be updated |
-| INT-001 | Error | Admission beyond approved intake |
-| INT-002 | Error | Supernumerary quota cap exceeded |
-| CON-001…008 | Error / Warning | FN without passport, OCI without card, nationality conflicts, NRI without country, lateral entry not in year 2, admission outside window, implausible age, quota/nationality mismatch |
-
-Supernumerary caps and the admission window in `config.py` are **demo values** modelled on the AICTE Approval Process Handbook. Check them against the handbook in force before any real use.
+| Identity matching, held-out hand-labelled pairs | precision 0.79, recall 0.92 (previous matcher 0.65 / 0.68) | Independent of the synthetic data. Most remaining false alarms are records nobody can tell apart without an APAAR ID, which is why matches are review items |
+| Same-day twins wrongly flagged | 0 of 80 | Hard negatives planted in the dataset |
+| Planted dual enrolments / identity duplicates / contact clusters found | 164/164 · 57/57 · 4/4 | Regression checks on planted cases, not accuracy on real data |
+| Planted anomalous institutions in the top-46 risk ranking | 42/46 | |
+| Defect types caught in the demo upload | 17/17, with 0 false flags on 56 clean rows | |
+| National scan over 49,053 enrolments | ≈2 s, run in the background after each submission | |
 
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q          # 25 API tests on an isolated database
-VP_DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<db> ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL
-cd e2e && npm install && npx playwright install chromium && npm test   # browser walkthrough (server running on :8000)
+cd backend && ../.venv/bin/python -m pytest -q          # 58 tests on an isolated database
+VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL 16
+cd e2e && npm install && npm test   # browser walkthrough of all 7 roles (server running on :8000)
 ```
 
-The API tests cover every planted defect, seat numbering, role-based access, the intake never being exceeded on commit, re-uploads updating records instead of creating new admissions, Excel upload, demo reset, session expiry, export sanitising, risk ranking, consent-scoped disclosure, QR forgery detection, the certificate PDF, audit tamper detection and the reports.
+The browser walkthrough resets the demo, drives every role, fails on any browser console error, measures the live dashboard update, and saves the screenshots in `docs/screenshots/`. CI runs the backend tests (SQLite and PostgreSQL) and the frontend build on every push.
 
-The browser walkthrough resets the demo, then drives all five roles through the eight demo steps above, fails on any browser console error, and saves the screenshots in `docs/screenshots/`.
+## Architecture
+
+```
+frontend/ (React + TypeScript + Tailwind + Recharts, installable PWA)
+   │  REST + Server-Sent Events (60-second stream tickets, no tokens in URLs)
+backend/app/
+   main.py            FastAPI routes, RBAC, security headers, rate limits, reports, SPA hosting
+   validation.py      row-level rule engine (31 rule codes), ERP column mapping, correction preview
+   matching.py        identity matching for Indian names (twin-safe, transliteration-aware)
+   scan.py            national scan with decision memory: intake, dual enrolment, identity, shared contacts
+   anomaly.py         Isolation Forest + rule evidence → peer-relative institution risk with reasons
+   rules/             regulatory parameters per academic year, with sources
+   apaar_registry.py  registry adapter: mock now, DigiLocker / API Setu connector for production
+   credentials.py     W3C-style credential + compact QR token, Ed25519, key derivation
+   audit.py           hash-chained audit log, signed checkpoints, attack simulation
+   keys.py            issuer key rotation (re-signs and records it)
+   seed.py            synthetic national dataset with planted anomalies and hard negatives
+```
+
+Production path: PostgreSQL with row-level security and encrypted PII columns, AICTE SSO (OIDC + MFA), the DigiLocker / API Setu connector once AICTE is onboarded, hosting on MeitY-empanelled cloud or NIC, and STQC / CERT-In-empanelled audit before go-live.
 
 ## Not built yet (production work)
 
 - Live APAAR lookups: the registry adapter uses a mock. Real lookups need AICTE to be onboarded as a DigiLocker / API Setu partner.
-- AICTE SSO (OIDC + MFA), rate limiting and mTLS. The prototype uses signed demo sessions with role-based access and 8-hour expiry.
-- Encrypted PII columns and row-level security in PostgreSQL. The prototype runs on SQLite, and the test suite also passes on PostgreSQL 16.
+- AICTE SSO with MFA. The prototype uses signed demo sessions (8-hour expiry) and per-institution API keys.
+- Cross-script matching (a Latin name against the same name in Devanagari) needs an Indic transliteration model; same-script Indic names are handled.
+- Encrypted PII columns, row-level security and an external anchor (e.g. a public timestamping service) for audit checkpoints.
 - Real OTP delivery. The demo shows the OTP on screen.
-- Hindi covers navigation and headline labels, not every screen.
-- Hosting needs a free Render (or other Docker) account; see "Deploy a public demo".
+- Hindi covers navigation, headline labels and the sign-in page, not every screen.
+- Supernumerary values marked `verified: false` in the rules file must be confirmed against the handbook in force.
 
-Every claim in the idea deck is mapped to its evidence in [`docs/CLAIMS.md`](docs/CLAIMS.md).
+More: [assumptions](docs/ASSUMPTIONS.md) · [data dictionary](docs/DATA_DICTIONARY.md) · [security and privacy](docs/SECURITY.md) · [claim-to-evidence map for the deck](docs/CLAIMS.md).
 
 ## Submission deck
 
@@ -172,5 +162,9 @@ Every claim in the idea deck is mapped to its evidence in [`docs/CLAIMS.md`](doc
 ```bash
 cd ppt && npm install && node export_icons.js .build/icons
 ../.venv/bin/pip install python-pptx
-../.venv/bin/python build_template_deck.py --team-id <ID> --live-url <https://...> [--repo-url <url>]
+../.venv/bin/python build_template_deck.py --team-id <ID>
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).

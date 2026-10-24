@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 
 const BASE = process.env.BASE_URL || "http://127.0.0.1:8000";
+const PIN = process.env.DEMO_PIN || "";
 const OUT = process.argv[2] || "screenshots";
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -30,10 +31,12 @@ const login = async (title) => {
 
 // 0. Reset demo data so the upload step starts from an empty B.Tech CSE programme
 await login("AICTE officer");
+await page.evaluate((pin) => { window.__pin = pin; }, PIN);
 await page.evaluate(async () => {
-  const r = await fetch("/api/demo/reset", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("vp_token")}` } });
+  // eslint-disable-next-line no-undef
+  const r = await fetch("/api/demo/reset", { method: "POST", headers: { Authorization: `Bearer ${localStorage.getItem("vp_token")}`, "Content-Type": "application/json" }, body: JSON.stringify({ pin: window.__pin }) });
   if (!r.ok) throw new Error(`demo reset failed: ${r.status}`);
-});
+}).catch(async (e) => { throw e; });
 
 // 1. Landing
 await page.evaluate(() => localStorage.clear());
@@ -78,8 +81,16 @@ await page.goto(`${BASE}/institution`);
 await page.waitForTimeout(1500);
 await shot("07_institution_ledger_after");
 await page.goto(`${BASE}/institution/api`);
-await page.waitForTimeout(1500);
+await page.getByRole("button", { name: "Create key" }).click();
+await page.getByText(/Copy this key now/).waitFor();
 await shot("08_integration_api");
+// A student leaves: record the exit (record kept, credential revoked, flags clear on the next scan)
+await page.goto(`${BASE}/institution/students`);
+await page.getByRole("button", { name: /Record exit/ }).first().click();
+await page.getByLabel(/Reason/).fill("Migrated with NOC no. 2026/114");
+await shot("09_record_exit_dialog");
+await page.getByRole("button", { name: /^Record exit$/ }).last().click();
+await page.getByText(/recorded as transferred/).waitFor();
 
 // 3. AICTE
 await login("AICTE officer");
@@ -102,19 +113,27 @@ await page.waitForTimeout(1500);
 await page.locator("main ul li button").first().click();
 await page.getByText("Matched record").waitFor();
 await shot("15_review_dual_enrolment");
+await page.goto(`${BASE}/aicte/review?rule=DUP-004`);
+await page.waitForTimeout(1500);
+await page.locator("main ul li button").first().click();
+await page.getByText(/students at \d+ institutions share/).waitFor();
+await shot("19_review_shared_contact_cluster");
 await page.goto(`${BASE}/aicte/reports`);
 await page.waitForTimeout(1500);
 await shot("16_reports");
+await page.goto(`${BASE}/rules`);
+await page.getByText("Supernumerary caps").first().waitFor();
+await shot("26_rules_in_force");
 await page.goto(`${BASE}/audit`);
 await page.waitForTimeout(1500);
 await page.getByRole("button", { name: /Verify chain/ }).click();
 await page.getByText(/Chain intact/).waitFor();
 await shot("17_audit_intact");
-await page.getByRole("button", { name: /Simulate DB tampering/ }).click();
-await page.getByText(/Tampering detected/).waitFor();
-await shot("18_audit_tampered");
-await page.getByRole("button", { name: /^Restore$/ }).click();
-await page.getByText(/Chain intact/).waitFor();
+await page.getByRole("button", { name: /Edit and recompute every hash/ }).click();
+await page.getByText("Hash chain + signed checkpoints").waitFor();
+await shot("18_audit_rewrite_detected");
+await page.getByRole("button", { name: /Verify chain/ }).click();
+await page.getByText(/Chain intact/).waitFor(); // the simulation changed nothing stored
 
 // Hindi toggle
 await page.goto(`${BASE}/aicte`);
@@ -130,6 +149,18 @@ if (await page.getByRole("button", { name: /Run national scan|Reset demo/ }).cou
 await page.goto(`${BASE}/aicte/review`);
 await page.waitForTimeout(1500);
 if (!page.url().endsWith("/aicte/review")) throw new Error("auditor should be able to read the review queue");
+
+// Regulator: aggregates for one state, no student-level screens
+await login("State regulator");
+await page.getByText("State-wise monitoring").waitFor();
+if (await page.getByRole("link", { name: /Review queue|Audit trail/ }).count()) throw new Error("regulator sees student-level screens");
+await shot("27_regulator_dashboard");
+
+// University: APAAR ID + student ID feed for printing degrees
+await login("University registrar");
+await page.getByText("Print feed", { exact: false }).first().waitFor();
+await page.waitForTimeout(1200);
+await shot("28_university_degree_feed");
 
 // 4. Verifier asks for consent, student approves, verifier sees only the scoped fields
 const apaar = await (async () => {
@@ -169,6 +200,7 @@ const token = await (async () => {
 await page.evaluate(() => localStorage.clear());
 await page.goto(`${BASE}/verify?t=${token}`);
 await page.getByText(/^Verified$/).waitFor();
+await page.getByText(/On this device: signature valid/).waitFor();
 await shot("23_public_qr_verified");
 const [h, p, s] = token.split(".");
 const forged = [h, p.slice(0, 20) + (p[20] === "A" ? "B" : "A") + p.slice(21), s].join(".");

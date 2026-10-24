@@ -47,7 +47,8 @@ def render_certificate(student, enrolment, token: str) -> bytes:
     c.setFont("Helvetica-Bold", 22)
     c.drawCentredString(W / 2, H - 38 * mm, inst.name)
     c.setFont("Helvetica", 11)
-    c.drawCentredString(W / 2, H - 45 * mm, f"AICTE Permanent ID: {inst.aicte_pid}   |   {inst.city}, {inst.state}")
+    c.drawCentredString(W / 2, H - 45 * mm, f"AICTE Permanent ID: {inst.aicte_pid}   |   {inst.city}, {inst.state}"
+                        + (f"   |   Affiliated to {inst.university}" if inst.university else ""))
     c.setFillColor(SAFFRON)
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(W / 2, H - 60 * mm, "CERTIFICATE OF ENROLMENT")
@@ -67,7 +68,7 @@ def render_certificate(student, enrolment, token: str) -> bytes:
     c.roundRect(30 * mm, y - 6 * mm, 150 * mm, 30 * mm, 3 * mm, fill=1, stroke=0)
     c.setFillColor(NAVY)
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(35 * mm, y + 16 * mm, "APAAR ID")
+    c.drawString(35 * mm, y + 16 * mm, "APAAR ID" if student.apaar_id else "Provisional AICTE ID (no APAAR)")
     c.drawString(105 * mm, y + 16 * mm, "Student ID (Roll No.)")
     c.setFont("Courier-Bold", 16)
     apaar = student.apaar_id or student.provisional_id or "-"
