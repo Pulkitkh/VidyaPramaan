@@ -396,3 +396,28 @@ def test_demo_reset_undoes_portal_corrections(aicte):
     assert rec["student"]["name"] == "Ananya Kulkarni"
     assert all(c["status"] == "ACTIVE" for c in rec["credentials"])
     assert client.get("/api/audit/verify", headers=aicte).json()["valid"] is True
+
+
+def test_sign_in_works_while_a_slow_scan_holds_the_write_lock(monkeypatch):
+    """On a small instance the background scan is slow; users must still be able to sign in and work."""
+    import threading
+    import time
+    from app import main, services
+    real = services.score_institutions
+
+    def slow(db):
+        from sqlalchemy import update
+        from app.models import Institution
+        out = real(db)
+        # Write, so SQLite's write lock is held, as a slow scoring phase on a small CPU would hold it.
+        db.execute(update(Institution).where(Institution.id == 1).values(quality_score=Institution.quality_score))
+        time.sleep(9)     # well past SQLite's default 5-second lock wait
+        return out
+
+    monkeypatch.setattr(services, "score_institutions", slow)
+    t = threading.Thread(target=main.refresh_in_background)
+    t.start()
+    time.sleep(2)
+    r = client.post("/api/auth/demo-login", json={"username": "aicte.admin"})
+    t.join()
+    assert r.status_code == 200, r.text

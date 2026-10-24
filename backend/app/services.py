@@ -134,8 +134,16 @@ def commit_batch(db: Session, batch: UploadBatch, user: User, scan: bool = True)
 
 
 def refresh_national(db: Session, actor: str = "system", role: str = "SYSTEM") -> dict:
+    """National scan, risk scoring and a signed audit checkpoint.
+
+    Each phase commits on its own. The phases spend most of their time reading and computing and write
+    only at the end, so committing between them keeps the database write lock short: other users can
+    sign in and submit while a scan runs, even on a small single-CPU instance.
+    """
     scan = run_scan(db)
+    db.commit()
     score_institutions(db)
+    db.commit()
     audit.record(db, actor, role, "NATIONAL_SCAN", "dataset", "national",
                  {k: scan[k] for k in ("findings", "new", "closed", "decisions_kept")})
     audit.checkpoint(db)

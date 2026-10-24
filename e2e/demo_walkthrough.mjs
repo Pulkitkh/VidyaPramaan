@@ -12,7 +12,9 @@ fs.mkdirSync(OUT, { recursive: true });
 // VIDEO_DIR=... records the run as a video (for a backup demo); SLOW_MO=ms slows every action so it can be watched.
 const VIDEO = process.env.VIDEO_DIR;
 const browser = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
-  slowMo: Number(process.env.SLOW_MO || 0) });
+  slowMo: Number(process.env.SLOW_MO || 0),
+  // Behind a corporate or sandbox proxy, set PW_PROXY (e.g. to $HTTPS_PROXY) to route the browser through it.
+  ...(process.env.PW_PROXY ? { proxy: { server: process.env.PW_PROXY } } : {}) });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: VIDEO ? 1 : 2,
   ...(VIDEO ? { recordVideo: { dir: VIDEO, size: { width: 1440, height: 900 } } } : {}) });
 const page = await ctx.newPage();
