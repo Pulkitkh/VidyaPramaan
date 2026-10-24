@@ -75,8 +75,8 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Students control who sees the record | Consent approve / deny / revoke and access-log tests |
 | Audited evidence pack for review and show-cause | `test_evidence_pack_for_show_cause` |
 | Certificate with APAAR ID + student ID + QR; QR verified | `test_certificate_pdf`; screenshots `25_certificate.png`, `23_public_qr_verified.png` |
-| Today: excess admissions surface in annual returns; AISHE 2–3 years late; duplicates unseen | Current AICTE / AISHE practice (references 2 and 5); expected, not measured |
-| With Vidya Pramaan: seat #61 stopped on upload; duplicates and rings flagged within minutes; QR check in seconds, offline | `test_intake_overflow_counts_seats`; background national scan after each submission (live run: dashboard updated in under 4 s, scan finished within the minute); on-device QR check in the walkthrough |
+| Today: 42 excess seats → ₹23.1 cr fine; AISHE 2022-23 published only in 2026; “a number of students have mismatch in Aadhaar and APAAR ID details” | FORE School of Management v AICTE, Supreme Court, 21 Jun 2019; AISHE 2022-23 and 2023-24 reports (released Jul 2026); Cluster University Srinagar notice on APAAR mismatch (cusrinagar.edu.in), 2026 |
+| With Vidya Pramaan: seat #61 stopped on upload; same-day view, duplicates within minutes; mismatches returned with the reason | `test_intake_overflow_counts_seats`; background national scan after each submission (live run: dashboard updated in under 4 s, scan finished within the minute); on-device QR check in the walkthrough |
 | Open-source, no licence cost | All dependencies are MIT / BSD / Apache licensed; project is MIT (`LICENSE`) |
 
 Impact statements about fairness, paperwork and fraud are expected benefits, not measured results.
@@ -91,3 +91,8 @@ Impact statements about fairness, paperwork and fraud are expected benefits, not
 | FN/OCI/PIO caps 15% UG, 25% PG for 2026-27 | APH 2026-27 addendum (reported by Careers360); rules file marks it verified |
 | APAAR is voluntary | MoE consent guidance; Supreme Court proceedings on APAAR opt-out (2026) |
 | DPDP Act 2023, Rules 2025 phased to 2027 | Law-firm summaries of the notified rules (L&S, AZB, SCC Online) |
+
+## Field validation (slide 6, when present)
+| Claim | Evidence |
+|---|---|
+| "From the field" quote | Shown only when `ppt/field_validation.json` holds a real quote with `permission_to_quote: true`, collected with `docs/validation/INTERVIEW_KIT.md`. Keep the interview notes. |

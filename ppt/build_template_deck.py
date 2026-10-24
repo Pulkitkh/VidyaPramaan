@@ -27,6 +27,11 @@ ICONS = HERE / ".build" / "icons"
 BENCH = json.loads((ROOT / "docs" / "benchmark.json").read_text())
 API_TESTS = sum(f.read_text().count("\ndef test_") for f in (ROOT / "backend" / "tests").glob("test_*.py"))
 HELD = BENCH["identity_matching_labelled_pairs"]["held_out"]
+# Real interview evidence, filled by the team after talking to an admission cell (docs/validation/INTERVIEW_KIT.md).
+# Shown only when a quote exists and the speaker agreed to be quoted; nothing is shown otherwise.
+_FV = HERE / "field_validation.json"
+FIELD = json.loads(_FV.read_text()) if _FV.exists() else {}
+HAS_QUOTE = bool(FIELD.get("quote", "").strip()) and FIELD.get("permission_to_quote") is True
 RULE_COUNT = len(__import__("re").findall(r'"[A-Z]{3}-\d{3}": \("', (ROOT / "backend" / "app" / "validation.py").read_text()))
 
 NAVY = RGBColor(0x1F, 0x38, 0x64)
@@ -410,17 +415,19 @@ def slide5(s):
         text(s, x + 0.6, y + 0.08, 1.33, 0.5, t1, size=12, bold=True, color=NAVY)
         text(s, x + 0.08, y + 0.6, 1.85, 0.48, t2, size=10.5, color=INK, anchor=MSO_ANCHOR.TOP)
     # Before / after, in the free corners of the impact map
-    before = ["Excess admissions surface in annual returns", "AISHE figures arrive 2–3 years late",
-              "Same student at two colleges goes unseen"]
-    after = ["Seat #61 of 60 stopped the day it is uploaded", "Duplicates and ghost rings flagged within minutes",
-             "QR check in seconds, even offline"]
+    before = ["42 excess seats found late: ₹23.1 cr fine (FORE v AICTE, SC 2019)",
+              "AISHE 2022-23 report published only in 2026",
+              "“a number of students have mismatch in Aadhaar and APAAR ID details” (CU Srinagar, 2026)"]
+    after = ["Seat #61 of 60 stopped the day it is uploaded, before any fine",
+             "Same-day national view; duplicates flagged within minutes",
+             "Mismatches returned with the reason, fixed by re-upload"]
     for x, w, title, items, fill, line, col, mark in (
             (0.35, 2.2, "Today", before, PALE_RED, RGBColor(0xF0, 0xC4, 0xC0), RED, "✖"),
             (4.72, 2.23, "With Vidya Pramaan", after, PALE_GREEN, RGBColor(0xBF, 0xE3, 0xC9), GREEN, "✔")):
         box(s, x, 4.86, w, 1.9, fill=fill, line=line)
         text(s, x + 0.08, 4.9, w - 0.16, 0.3, title, size=11.5, bold=True, color=col)
-        text(s, x + 0.08, 5.2, w - 0.16, 1.52, [[(f"{mark} ", {"color": col, "bold": True}), (t, {})] for t in items],
-             size=10, color=INK, anchor=MSO_ANCHOR.TOP, spacing=3)
+        text(s, x + 0.08, 5.18, w - 0.16, 1.56, [[(f"{mark} ", {"color": col, "bold": True}), (t, {})] for t in items],
+             size=9.5, color=INK, anchor=MSO_ANCHOR.TOP, spacing=2)
 
     pointer(s, 7.2, 1.2, 5.78, "Benefits of the solution (social, economic, environmental, etc.)")
     ben = [("LuHeartHandshake", "Social", "fair admissions; no student\nexcluded for opting out", GREEN),
@@ -488,6 +495,12 @@ def slide6(s, live_url, repo_url, build):
     for i, (t, link) in enumerate(refs, 1):
         paras.append([(f"{i}. {t}  ", {"size": 10}), (link, {"size": 9.5, "color": BLUE})])
     text(s, 7.6, 1.92, 5.38, 3.45, paras, size=10, anchor=MSO_ANCHOR.TOP, spacing=3)
+    if HAS_QUOTE:
+        who = ", ".join(x for x in (FIELD.get("speaker_role"), FIELD.get("institution")) if x)
+        text(s, 7.6, 4.88, 5.38, 0.5, [[("From the field:  ", {"bold": True, "color": ORANGE, "size": 10}),
+                                       (f"“{FIELD['quote'].strip()}”", {"italic": True, "size": 10}),
+                                       (f"  {who}" if who else "", {"size": 9.5, "color": GREY})]],
+             size=10, anchor=MSO_ANCHOR.TOP)
 
     y = 5.45
     box(s, 0.35, y, 12.63, 1.38, fill=PALE_ORANGE, line=ORANGE)
@@ -520,7 +533,8 @@ NOTES = [
     "one-state pilot to national rollout within a year on open-source software.",
     "Everyone gains from one national view: AICTE and regulators catch problems at submission, institutions get "
     "explained errors, universities print APAAR on degrees, employers verify in seconds, students control access. "
-    "The contrast at the bottom is the point: from years late to the same day.",
+    "The contrast at the bottom is the point, and every item on the left is sourced: a ₹23.1 crore fine for 42 "
+    "excess seats, national statistics years late, and APAAR mismatches universities are struggling with this year.",
     "We do not replace NAD, ABC or AISHE; we fill the gap none of them covers: student-level reconciliation of "
     "admissions against approved intake. Sources are on the right. Both QR codes work: the live prototype and the "
     "code with its tests.",
@@ -528,7 +542,11 @@ NOTES = [
 
 
 def add_notes(slides):
-    for slide, note in zip(slides, NOTES):
+    notes = list(NOTES)
+    if HAS_QUOTE:
+        notes[5] += (f" We spoke to {FIELD.get('people_spoken_to') or 'an'} admission-cell staff; "
+                     f"one told us: “{FIELD['quote'].strip()}”")
+    for slide, note in zip(slides, notes):
         slide.notes_slide.notes_text_frame.text = note
 
 
