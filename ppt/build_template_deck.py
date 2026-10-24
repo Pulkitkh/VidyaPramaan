@@ -409,6 +409,18 @@ def slide5(s):
         icon(s, ic, x + 0.08, y + 0.1, 0.46, bg=ORANGE if t1 == "Students" else NAVY)
         text(s, x + 0.6, y + 0.08, 1.33, 0.5, t1, size=12, bold=True, color=NAVY)
         text(s, x + 0.08, y + 0.6, 1.85, 0.48, t2, size=10.5, color=INK, anchor=MSO_ANCHOR.TOP)
+    # Before / after, in the free corners of the impact map
+    before = ["Excess admissions surface in annual returns", "AISHE figures arrive 2–3 years late",
+              "Same student at two colleges goes unseen"]
+    after = ["Seat #61 of 60 stopped the day it is uploaded", "Duplicates and ghost rings flagged within minutes",
+             "QR check in seconds, even offline"]
+    for x, w, title, items, fill, line, col, mark in (
+            (0.35, 2.2, "Today", before, PALE_RED, RGBColor(0xF0, 0xC4, 0xC0), RED, "✖"),
+            (4.72, 2.23, "With Vidya Pramaan", after, PALE_GREEN, RGBColor(0xBF, 0xE3, 0xC9), GREEN, "✔")):
+        box(s, x, 4.86, w, 1.9, fill=fill, line=line)
+        text(s, x + 0.08, 4.9, w - 0.16, 0.3, title, size=11.5, bold=True, color=col)
+        text(s, x + 0.08, 5.2, w - 0.16, 1.52, [[(f"{mark} ", {"color": col, "bold": True}), (t, {})] for t in items],
+             size=10, color=INK, anchor=MSO_ANCHOR.TOP, spacing=3)
 
     pointer(s, 7.2, 1.2, 5.78, "Benefits of the solution (social, economic, environmental, etc.)")
     ben = [("LuHeartHandshake", "Social", "fair admissions; no student\nexcluded for opting out", GREEN),
@@ -492,6 +504,34 @@ def slide6(s, live_url, repo_url, build):
              size=12, anchor=MSO_ANCHOR.MIDDLE)
 
 
+NOTES = [
+    "Vidya Pramaan: one student, one APAAR ID, one verifiable record. A working prototype for SIH26263, live at the "
+    "link on this slide, with seven demo roles and synthetic data only.",
+    "AICTE today sees totals, late. Excess admission costs five times the fee per student, yet it surfaces in annual "
+    "returns. Our flow is the one the problem statement asks for: upload, APAAR check, verification, central record, "
+    "live monitoring, consented verification. What is new: name matching that keeps twins apart, ghost-admission "
+    "rings, decisions that are remembered, signed audit checkpoints, rules as data, and APAAR on every degree.",
+    "Open-source stack, PostgreSQL tested. Every row goes through 31 explained rules; errors come back with reasons; "
+    "accepted rows trigger a national scan and risk scoring against peers. The screenshot is the real prototype: "
+    "77 rows, 65 accepted, 12 returned. Scan the QR to try it.",
+    "Feasibility is measured, not promised. On name pairs written independently of our data: precision 0.79, recall "
+    "0.92, against 0.65 and 0.68 for the usual fuzzy match. No twin is ever merged. Planted cases are regression "
+    "checks, and we say so. 59 tests on SQLite and PostgreSQL. Each risk has a built answer, and the roadmap goes from "
+    "one-state pilot to national rollout within a year on open-source software.",
+    "Everyone gains from one national view: AICTE and regulators catch problems at submission, institutions get "
+    "explained errors, universities print APAAR on degrees, employers verify in seconds, students control access. "
+    "The contrast at the bottom is the point: from years late to the same day.",
+    "We do not replace NAD, ABC or AISHE; we fill the gap none of them covers: student-level reconciliation of "
+    "admissions against approved intake. Sources are on the right. Both QR codes work: the live prototype and the "
+    "code with its tests.",
+]
+
+
+def add_notes(slides):
+    for slide, note in zip(slides, NOTES):
+        slide.notes_slide.notes_text_frame.text = note
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--team-id", default="")
@@ -520,6 +560,7 @@ def main():
     slide4(slides[3])
     slide5(slides[4])
     slide6(slides[5], a.live_url, a.repo_url, build)
+    add_notes(slides)
     cp = prs.core_properties
     cp.title = "Vidya Pramaan: SIH26263 idea submission"
     cp.author = f"Team {a.team_name}"

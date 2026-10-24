@@ -115,7 +115,7 @@ The repository includes a `Dockerfile` (UI + API in one container, synthetic dat
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q          # 58 tests on an isolated database
+cd backend && ../.venv/bin/python -m pytest -q          # 59 tests on an isolated database
 VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL 16
 cd e2e && npm install && npm test   # browser walkthrough of all 7 roles (server running on :8000)
 ```

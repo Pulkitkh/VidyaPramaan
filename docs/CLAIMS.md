@@ -3,8 +3,8 @@
 Each statement on the slides maps to an automated check, a measured result or a cited source. Run them yourself:
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q                                   # 58 tests (SQLite)
-VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same 58 on PostgreSQL 16
+cd backend && ../.venv/bin/python -m pytest -q                                   # 59 tests (SQLite)
+VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same 59 on PostgreSQL 16
 cd backend && python -m app.seed && python -m scripts.benchmark                   # docs/benchmark.json
 cd backend && python -m scripts.identity_eval                                     # name-matching precision / recall
 cd e2e && npm test                                                                # browser walkthrough, server on :8000
@@ -57,7 +57,7 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | 17/17 planted error types; 0 false flags on 56 clean rows | `docs/benchmark.json` |
 | 164 · 57 · 4 planted dual enrolments, identity duplicates, contact rings found | `docs/benchmark.json` (recall 164/164, 57/57, 4/4) |
 | 42/46 top-ranked colleges truly anomalous | `docs/benchmark.json` `risk_precision_at_k` |
-| 58 tests, SQLite + PostgreSQL 16; 7-role walkthrough | Commands above |
+| 59 tests, SQLite + PostgreSQL 16; 7-role walkthrough | Commands above |
 | Planted figures are regression checks, not real-world accuracy | Stated on the slide and in `scripts/benchmark.py` |
 | Provisional ID; mother's or guardian's name accepted | `test_provisional_ids_for_students_without_apaar`, `test_mother_or_guardian_is_enough` |
 | Consent per field, masked IDs, no Aadhaar stored, access log | `test_consent_flow_discloses_only_scope`, `test_apaar_ids_are_masked_in_aicte_views`, `test_consent_revocation_and_access_log`; no Aadhaar column exists (`models.py`) |
@@ -75,6 +75,8 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Students control who sees the record | Consent approve / deny / revoke and access-log tests |
 | Audited evidence pack for review and show-cause | `test_evidence_pack_for_show_cause` |
 | Certificate with APAAR ID + student ID + QR; QR verified | `test_certificate_pdf`; screenshots `25_certificate.png`, `23_public_qr_verified.png` |
+| Today: excess admissions surface in annual returns; AISHE 2–3 years late; duplicates unseen | Current AICTE / AISHE practice (references 2 and 5); expected, not measured |
+| With Vidya Pramaan: seat #61 stopped on upload; duplicates and rings flagged within minutes; QR check in seconds, offline | `test_intake_overflow_counts_seats`; background national scan after each submission (live run: dashboard updated in under 4 s, scan finished within the minute); on-device QR check in the walkthrough |
 | Open-source, no licence cost | All dependencies are MIT / BSD / Apache licensed; project is MIT (`LICENSE`) |
 
 Impact statements about fairness, paperwork and fraud are expected benefits, not measured results.
