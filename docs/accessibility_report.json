@@ -1,0 +1,246 @@
+{
+ "checked_at": "2026-10-25T18:31:45.391Z",
+ "standard": "WCAG 2.1 A/AA (axe-core)",
+ "screens": 34,
+ "serious_or_critical": 0,
+ "results": [
+  {
+   "role": "public",
+   "path": "/login",
+   "width": 1440,
+   "passes": 17,
+   "violations": []
+  },
+  {
+   "role": "public",
+   "path": "/verify",
+   "width": 1440,
+   "passes": 13,
+   "violations": []
+  },
+  {
+   "role": "public",
+   "path": "/rules",
+   "width": 1440,
+   "passes": 24,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte",
+   "width": 1440,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/institutions",
+   "width": 1440,
+   "passes": 24,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/institutions/1",
+   "width": 1440,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/review",
+   "width": 1440,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/reports",
+   "width": 1440,
+   "passes": 18,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/audit",
+   "width": 1440,
+   "passes": 21,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution",
+   "width": 1440,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/upload",
+   "width": 1440,
+   "passes": 15,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/students",
+   "width": 1440,
+   "passes": 24,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/api",
+   "width": 1440,
+   "passes": 21,
+   "violations": []
+  },
+  {
+   "role": "Student",
+   "path": "/student",
+   "width": 1440,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "University registrar",
+   "path": "/university",
+   "width": 1440,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "State regulator",
+   "path": "/aicte",
+   "width": 1440,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "Employer",
+   "path": "/verify",
+   "width": 1440,
+   "passes": 20,
+   "violations": []
+  },
+  {
+   "role": "public",
+   "path": "/login",
+   "width": 390,
+   "passes": 17,
+   "violations": []
+  },
+  {
+   "role": "public",
+   "path": "/verify",
+   "width": 390,
+   "passes": 13,
+   "violations": []
+  },
+  {
+   "role": "public",
+   "path": "/rules",
+   "width": 390,
+   "passes": 24,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte",
+   "width": 390,
+   "passes": 26,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/institutions",
+   "width": 390,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/institutions/1",
+   "width": 390,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/review",
+   "width": 390,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/aicte/reports",
+   "width": 390,
+   "passes": 18,
+   "violations": []
+  },
+  {
+   "role": "AICTE officer",
+   "path": "/audit",
+   "width": 390,
+   "passes": 22,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution",
+   "width": 390,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/upload",
+   "width": 390,
+   "passes": 15,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/students",
+   "width": 390,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "Institution admin",
+   "path": "/institution/api",
+   "width": 390,
+   "passes": 21,
+   "violations": []
+  },
+  {
+   "role": "Student",
+   "path": "/student",
+   "width": 390,
+   "passes": 23,
+   "violations": []
+  },
+  {
+   "role": "University registrar",
+   "path": "/university",
+   "width": 390,
+   "passes": 25,
+   "violations": []
+  },
+  {
+   "role": "State regulator",
+   "path": "/aicte",
+   "width": 390,
+   "passes": 26,
+   "violations": []
+  },
+  {
+   "role": "Employer",
+   "path": "/verify",
+   "width": 390,
+   "passes": 20,
+   "violations": []
+  }
+ ]
+}

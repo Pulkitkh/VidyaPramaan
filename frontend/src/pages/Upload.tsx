@@ -144,7 +144,7 @@ export default function UploadPage() {
             actions={<Tabs value={filter} onChange={setFilter} items={[
               { value: "all", label: `All ${batch.total_rows}` }, { value: "ERROR", label: `Rejected ${batch.error_rows}` },
               { value: "WARNING", label: `Warnings ${batch.warning_rows}` }, { value: "OK", label: "Clean" }]} />}>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
               <table className="w-full min-w-[960px]">
                 <thead><tr>
                   <th className="th">Row</th><th className="th">Status</th><th className="th">Student</th><th className="th">APAAR</th>

@@ -22,7 +22,8 @@ from .models import (ConsentRequest, Credential, Enrolment, Institution, MockApa
                      Student, VerificationLog, now)
 from .scan import run_scan
 
-RNG = random.Random(2026)
+# Seeded PRNG on purpose: the synthetic dataset must be reproducible. Not used for anything secret.
+RNG = random.Random(2026)  # nosec B311
 FAKE = Faker("en_IN")
 FAKE.seed_instance(2026)
 SAMPLE_CSV = config.SAMPLE_CSV
@@ -387,7 +388,7 @@ def build_demo_csv(b: Builder, demo: dict) -> list[dict]:
              "year_of_study": 1,
              "admission_type": "REGULAR", "quota": "STATE_CAP", "nationality": "Indian", "fn_status": "N",
              "oci_status": "N", "oci_card_no": "", "passport_no": "", "nri_status": "N", "nri_country": "",
-             "pwd": "N", "admission_date": adm_date().isoformat(), "mobile": p.get("mobile") or new_mobile(),
+             "pwd": "N", "admission_date": adm_date().isoformat(), "mobile": p.get("mobile") or new_mobile(),  # nosec B105
              "email": p.get("email") or ""}
         r.update(kw)
         return r
@@ -474,8 +475,8 @@ def main(n_institutions: int | None = None) -> dict:
     if engine.dialect.name == "postgresql":
         # Rows were inserted with explicit ids; move each id sequence past them.
         from sqlalchemy import text
-        for table in ("institution", "programme", "student", "enrolment"):
-            db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+        for table in ("institution", "programme", "student", "enrolment"):  # fixed names, no user input
+            db.execute(text(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "  # nosec B608
                             f"(SELECT COALESCE(MAX(id), 1) FROM {table}))"))
         db.commit()
     audit.record(db, "system", "SYSTEM", "SEED_SYNTHETIC_DATA", "dataset", "national",

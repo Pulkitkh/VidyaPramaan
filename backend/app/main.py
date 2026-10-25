@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from openpyxl import Workbook
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ from . import audit, config, events, services
 from .apaar_registry import is_valid_format, mask
 from .auth import User, current_user, issue_ticket, issue_token, otp_hash, parse_ticket, require
 from .certificates import qr_png, render_certificate, verify_url
-from .credentials import build_credential, key_id, public_jwk, verify_compact, verify_vc
+from .credentials import ISSUER_DID, build_credential, did_document, key_id, public_jwk, sign_compact, verify_compact, verify_vc
 from .db import Base, SessionLocal, engine, get_db
 from .keys import ensure_current_key
 from .models import (ApiKey, AuditCheckpoint, AuditEvent, ConsentRequest, Credential, Enrolment, Finding,
@@ -49,6 +49,11 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Vidya Pramaan API", version="0.2.0", lifespan=lifespan,
               description="APAAR ID-based student data management and verification (SIH26263 prototype). "
                           "All data is synthetic.")
+
+
+@app.exception_handler(audit.AuditUnavailable)
+def _audit_busy(request: Request, exc: audit.AuditUnavailable):
+    return JSONResponse({"detail": str(exc)}, status_code=503, headers={"Retry-After": "5"})
 
 AICTE = ("AICTE_ADMIN", "AUDITOR")                 # national roles that may see student-level records
 MONITOR = AICTE + ("REGULATOR",)                    # roles that see aggregated monitoring
@@ -362,7 +367,7 @@ TEMPLATE_EXAMPLE = {"apaar_id": "123456789012", "apaar_consent": "GIVEN", "roll_
                     "programme_code": "BTCSE", "admission_year": 2026, "year_of_study": 1,
                     "admission_type": "REGULAR", "quota": "STATE_CAP", "nationality": "Indian", "fn_status": "N",
                     "oci_status": "N", "oci_card_no": "", "passport_no": "", "nri_status": "N", "nri_country": "",
-                    "pwd": "N", "admission_date": "2026-08-01", "mobile": "9800000000", "email": "student@example.in"}
+                    "pwd": "N", "admission_date": "2026-08-01", "mobile": "9800000000", "email": "student@example.in"}  # nosec B105
 
 
 @app.get("/api/institution/template.csv")
@@ -686,6 +691,28 @@ def credential_status(cred_id: str, db: Session = Depends(get_db)):
 @app.get("/api/issuer/jwk")
 def issuer_key():
     return {**public_jwk(), "key_id": key_id()}
+
+
+@app.get("/.well-known/did.json")
+def did_json():
+    return JSONResponse(did_document(), media_type="application/did+json")
+
+
+STATUS_LIST_TTL = timedelta(hours=24)
+
+
+@app.get("/api/credentials/status-list")
+def credential_status_list(request: Request, db: Session = Depends(get_db)):
+    """Public, signed list of every credential that is no longer valid. A verifier caches it while online;
+    an offline check then reports revocation status "as of" the list time, not just a valid signature."""
+    limiter.check(request, "status-list", 30)
+    rows = db.execute(select(Credential.id, Credential.status).where(Credential.status != "ACTIVE")).all()
+    issued = now()
+    claims = {"typ": "revocation-list", "iss": ISSUER_DID, "iat": issued.isoformat(timespec="seconds"),
+              "exp": (issued + STATUS_LIST_TTL).isoformat(timespec="seconds"),
+              "revoked": sorted(i for i, st in rows if st == "REVOKED"),
+              "superseded": sorted(i for i, st in rows if st == "SUPERSEDED")}
+    return {"token": sign_compact(claims), "count": len(rows), "issued_at": claims["iat"], "expires_at": claims["exp"]}
 
 
 @app.post("/api/verify/token")

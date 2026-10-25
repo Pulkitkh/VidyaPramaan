@@ -20,4 +20,8 @@ ppt/.build/
 *.crt
 *.sqlite
 secrets/
+data_key.bin
 .proxy-ca.crt
+.coverage
+coverage.xml
+htmlcov/

@@ -70,7 +70,9 @@ def run_scan(db: Session) -> dict:
                 _add(out, "INT-002", p.institution_id,
                      f"{p.name}: {n} {sn} supernumerary seats against cap {cap} ({frac:.0%} for {p.level})",
                      f"INT-002:{pid}:{sn}:{n}", programme_id=pid, quota=sn, enrolled=n, cap=cap,
-                     case=f"P{pid}:{sn}")
+                     case=f"P{pid}:{sn}", cap_verified=config.sn_cap_verified(sn))
+                if not config.sn_cap_verified(sn):
+                    out[-1]["severity"] = "WARNING"
 
     # Same APAAR actively enrolled at more than one institution.
     multi = db.execute(

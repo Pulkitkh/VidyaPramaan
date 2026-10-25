@@ -152,32 +152,77 @@ def map_columns(raw_rows: list[dict]) -> tuple[list[dict], dict, list[str]]:
     return rows, renamed, unknown
 
 
+EXCEL_EPOCH = date(1899, 12, 30)
+SCIENTIFIC_RE = re.compile(r"^\d(?:\.\d+)?E\+?\d+$", re.I)
+_INVISIBLE = dict.fromkeys(map(ord, "\u200b\u200c\u200d\u2060\ufeff"))
+
+
 def _date(v) -> date | None:
-    """ISO dates, or day-first Indian formats (DD-MM-YYYY, DD/MM/YYYY). Month-first is never assumed."""
+    """ISO dates, or day-first Indian formats (DD-MM-YYYY, DD/MM/YYYY, 21-Jun-2008). Month-first is never
+    assumed. A bare 5-digit number is an Excel date serial (the cell lost its date format on export)."""
     v = str(v or "").strip()
-    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y"):
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%d-%b-%Y", "%d %b %Y", "%Y-%m-%d %H:%M:%S"):
         try:
             return datetime.strptime(v, fmt).date()
         except ValueError:
             pass
+    if v.isdigit() and 20000 <= int(v) <= 60000:  # 1954-10-03 .. 2064-04-08
+        return EXCEL_EPOCH + timedelta(days=int(v))
     return None
 
 
+def _decode(content: bytes) -> str:
+    """UTF-8 (with or without BOM), else Windows-1252: what Excel's plain "CSV" save produces on Indian PCs."""
+    try:
+        return content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return content.decode("cp1252", errors="replace")
+
+
 def parse_csv(content: bytes) -> list[dict]:
-    text = content.decode("utf-8-sig")
-    reader = csv.DictReader(io.StringIO(text))
-    return [{(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None} for row in reader]
+    """Comma, semicolon, tab or pipe separated; blank lines and fully empty rows are skipped."""
+    text = _decode(content)
+    first = text.split("\n", 1)[0]
+    delimiter = max(",;\t|", key=first.count) if first else ","
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    out = []
+    for row in reader:
+        clean = {(k or "").strip(): (v or "").strip() for k, v in row.items() if k is not None}
+        if any(clean.values()):
+            out.append(clean)
+    return out
+
+
+def _header_score(values) -> int:
+    keys = [_key(str(v or "")) for v in values]
+    return sum(1 for k in keys if k in COLUMNS or k in _SYN)
 
 
 def parse_xlsx(content: bytes) -> list[dict]:
-    """First worksheet, first row as header. Excel dates and numbers are converted to text."""
+    """The first worksheet that looks like student data: its header is the first row (within the top ten)
+    with at least three recognised column names, so title rows and instruction sheets are skipped.
+    Excel dates and numbers are converted to text."""
     from openpyxl import load_workbook
     with zipfile.ZipFile(io.BytesIO(content)) as z:  # refuse zip bombs before openpyxl inflates them
         if sum(i.file_size for i in z.infolist()) > MAX_XLSX_UNCOMPRESSED:
             raise ValueError("Workbook is too large when uncompressed")
-    ws = load_workbook(io.BytesIO(content), read_only=True, data_only=True).worksheets[0]
-    it = ws.iter_rows(values_only=True)
-    header = [str(h or "").strip() for h in next(it, [])]
+    wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    for ws in wb.worksheets:
+        it = ws.iter_rows(values_only=True)
+        header = None
+        for _ in range(10):
+            values = next(it, None)
+            if values is None:
+                break
+            if _header_score(values) >= 3:
+                header = [str(h or "").strip() for h in values]
+                break
+        if header is not None:
+            break
+    else:
+        return []
+    if header is None:
+        return []
     out = []
     for values in it:
         if values is None or all(v in (None, "") for v in values):
@@ -188,6 +233,8 @@ def parse_xlsx(content: bytes) -> list[dict]:
                 v = v.date().isoformat()
             elif isinstance(v, date):
                 v = v.isoformat()
+            elif isinstance(v, bool):
+                v = "Y" if v else "N"
             elif isinstance(v, float) and v.is_integer():
                 v = int(v)
             row[h] = "" if v is None else str(v).strip()
@@ -200,8 +247,15 @@ def parse_xlsx(content: bytes) -> list[dict]:
 def normalise(raw: dict) -> tuple[dict, list[dict]]:
     """Clean one row into template form. Values that cannot be read become SCH-002 findings."""
     problems: list[dict] = []
-    r = {c: str(raw.get(c) or "").strip() for c in COLUMNS}
+    r = {c: " ".join(str(raw.get(c) or "").translate(_INVISIBLE).split()) for c in COLUMNS}
+    for c in ("apaar_id", "mobile"):
+        if SCIENTIFIC_RE.match(r[c]):
+            problems.append(finding("SCH-002", f"{c} '{r[c]}' was shortened by Excel to scientific notation and its "
+                                    "digits are lost; format the column as Text and export again", field=c, value=r[c]))
+            r[c] = ""
     r["apaar_id"] = re.sub(r"[\s-]", "", r["apaar_id"])
+    if r["apaar_id"].endswith(".0") and r["apaar_id"][:-2].isdigit():
+        r["apaar_id"] = r["apaar_id"][:-2]
     for c in ("gender", "category", "admission_type", "quota", "apaar_consent", "programme_code"):
         v = r[c].upper().replace(" ", "_") if c in ("admission_type", "quota") else r[c].upper()
         r[c] = VALUE_SYNONYMS.get(c, {}).get(v, v)
@@ -536,7 +590,12 @@ def validate_rows(db: Session, institution: Institution, raw_rows: list[dict]) -
                     n += ledger.overflow[(prog.id, sn_type)] - 1
                     f.append(finding("INT-002", f"{sn_type} seat #{n} exceeds the cap of {cap} "
                                      f"({frac:.0%} of {prog.approved_intake} for {prog.level})",
-                                     quota=sn_type, seat_number=n, cap=cap, cap_fraction=frac))
+                                     quota=sn_type, seat_number=n, cap=cap, cap_fraction=frac,
+                                     cap_verified=config.sn_cap_verified(sn_type)))
+                    if not config.sn_cap_verified(sn_type):
+                        f[-1]["severity"] = "WARNING"
+                        f[-1]["message"] += "; this cap is not yet confirmed in the handbook in force, so the row " \
+                                            "is accepted and sent for review"
             else:
                 n = ledger.within[prog.id] + 1
                 if n <= prog.approved_intake:

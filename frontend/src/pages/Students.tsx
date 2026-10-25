@@ -60,7 +60,7 @@ export default function Students() {
       {note && <div className="mb-4 rounded-lg border border-[#bfe5bf] bg-[#e8f6e8] px-4 py-2.5 text-sm" role="status">{note}</div>}
       <Card pad={false}>
         {!data ? <Spinner /> : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
             <table className="w-full min-w-[980px]">
               <thead><tr><th className="th">Student</th><th className="th">APAAR / provisional ID</th><th className="th">Programme</th><th className="th">Quota · seat</th><th className="th">Admitted</th><th className="th">Status</th><th className="th">Actions</th></tr></thead>
               <tbody>

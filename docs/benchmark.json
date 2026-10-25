@@ -4,8 +4,8 @@
   "students": 48889,
   "enrolments": 49053
  },
- "national_scan_seconds": 8.88,
- "risk_scoring_seconds": 0.69,
+ "national_scan_seconds": 1.64,
+ "risk_scoring_seconds": 0.61,
  "scan_findings": 1369,
  "dual_enrolment_recall": "164/164",
  "identity_duplicate_recall": "57/57",
@@ -61,7 +61,7 @@
  "high_risk_alerts_all_planted": true,
  "high_risk_alerts": 3,
  "upload_rows": 77,
- "upload_validation_ms": 155,
+ "upload_validation_ms": 122,
  "planted_defect_types_caught": "17/17",
  "upload_rows_clean": 56
 }

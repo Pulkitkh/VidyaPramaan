@@ -40,7 +40,7 @@ export default function Institutions() {
       {error && <ErrorNote message={error} />}
       <Card pad={false}>
         {!data ? <Spinner /> : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
             <table className="w-full min-w-[900px]">
               <thead><tr>
                 <th className="th">Institution</th><th className="th">State</th><th className="th">Risk</th>

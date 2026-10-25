@@ -1,6 +1,6 @@
 // Vidya Pramaan service worker: installable app, and the QR verification page keeps working offline.
 // Only the app shell and static assets are cached. API responses (student data) are never cached.
-const CACHE = "vp-shell-v1";
+const CACHE = "vp-shell-v2";
 const SHELL = ["/", "/verify", "/manifest.webmanifest", "/favicon.svg", "/icon-192.png"];
 
 self.addEventListener("install", (e) => {

@@ -10,6 +10,7 @@ import json
 import os
 import uuid
 from datetime import datetime
+from urllib.parse import quote, urlsplit
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
@@ -20,8 +21,19 @@ from .apaar_registry import mask
 from .config import DATA_DIR, PUBLIC_BASE_URL, SECRET_KEY, SECRET_KEY_FROM_ENV
 
 KEY_PATH = DATA_DIR / "issuer_ed25519.pem"
-ISSUER_DID = "did:web:aicte.example.gov.in"
-ISSUER_NAME = "AICTE Student Registry (demo issuer)"
+
+
+def did_web(base_url: str) -> str:
+    """did:web identifier for the host serving /.well-known/did.json (a port is written as %3A)."""
+    parts = urlsplit(base_url)
+    path = ":".join(quote(p, safe="") for p in parts.path.strip("/").split("/") if p)
+    return "did:web:" + quote(parts.netloc, safe="") + (f":{path}" if path else "")
+
+
+# The issuer is the deployment itself, resolvable by any did:web resolver. In production this would be
+# AICTE's own domain (VP_ISSUER_DID=did:web:aicte.gov.in, with did.json published there).
+ISSUER_DID = os.getenv("VP_ISSUER_DID") or did_web(PUBLIC_BASE_URL)
+ISSUER_NAME = os.getenv("VP_ISSUER_NAME", "Vidya Pramaan prototype issuer (not an official AICTE credential)")
 
 
 def _b64(data: bytes) -> str:
@@ -74,6 +86,18 @@ def key_id() -> str:
 def public_jwk() -> dict:
     raw = _PUB.public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     return {"kty": "OKP", "crv": "Ed25519", "x": _b64(raw), "kid": f"{ISSUER_DID}#key-1"}
+
+
+def did_document() -> dict:
+    """DID document served at /.well-known/did.json, so the issuer key can be resolved from the DID."""
+    jwk = {k: v for k, v in public_jwk().items() if k != "kid"}
+    vm = f"{ISSUER_DID}#key-1"
+    return {
+        "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/suites/jws-2020/v1"],
+        "id": ISSUER_DID,
+        "verificationMethod": [{"id": vm, "type": "JsonWebKey2020", "controller": ISSUER_DID, "publicKeyJwk": jwk}],
+        "assertionMethod": [vm],
+    }
 
 
 def sign_compact(claims: dict) -> str:

@@ -1,7 +1,7 @@
 {
   "academic_year": "2026-27",
   "admission_year": 2026,
-  "version": "aicte-2026-27.2",
+  "version": "aicte-2026-27.3",
   "title": "AICTE regulatory parameters, academic year 2026-27",
   "admission_window": ["2026-06-01", "2026-09-30"],
   "near_cap_warning": 0.95,
@@ -21,20 +21,20 @@
     "TFW": {
       "label": "Tuition Fee Waiver",
       "caps": {"UG": 0.05, "PG": 0.05, "DIPLOMA": 0.05},
-      "verified": false,
-      "source": "Commonly cited 5% of approved intake; not re-verified against APH 2024-27 for this prototype."
+      "verified": true,
+      "source": "Up to 5% of approved intake, supernumerary (AICTE APH as cited in MRSPTU TFW notice 2024-25 and Central University of Punjab supernumerary-seat notice 2025-26 under APH 2024-27)."
     },
     "LATERAL": {
       "label": "Lateral entry into the second year",
       "caps": {"UG": 0.10, "PG": 0.0, "DIPLOMA": 0.10},
       "verified": false,
-      "source": "Commonly cited 10% supernumerary; not re-verified against APH 2024-27 for this prototype."
+      "source": "Up to 10% of approved intake plus vacant first-year seats per AICTE Handbook 2019-20 (Tamil Nadu G.O. 68, 2019); not yet confirmed in APH 2024-27, so excess is flagged for review, not rejected."
     },
     "EWS": {
       "label": "Economically Weaker Section (where sanctioned as supernumerary)",
       "caps": {"UG": 0.10, "PG": 0.10, "DIPLOMA": 0.10},
       "verified": false,
-      "source": "Applies only where EWS seats are sanctioned as supernumerary; value is a demo assumption."
+      "source": "Applies only where EWS seats are sanctioned as supernumerary; value is a demo assumption, so excess is flagged for review, not rejected."
     }
   },
   "age_limits": {"UG": [16, 30], "PG": [20, 45], "DIPLOMA": [14, 30]}

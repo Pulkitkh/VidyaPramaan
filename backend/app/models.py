@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
+from .fieldcrypt import Encrypted
 
 
 def now() -> datetime:
@@ -51,13 +52,14 @@ class Student(Base):
     father_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     mother_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     guardian_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    mobile: Mapped[str | None] = mapped_column(String(15), nullable=True, index=True)
-    email: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    # Contact details and document numbers are encrypted at rest (AES-256-GCM, see fieldcrypt.py).
+    mobile: Mapped[str | None] = mapped_column(Encrypted, nullable=True)
+    email: Mapped[str | None] = mapped_column(Encrypted, nullable=True)
     nationality: Mapped[str] = mapped_column(String(40), default="Indian")
     fn_status: Mapped[bool] = mapped_column(Boolean, default=False)
     oci_status: Mapped[bool] = mapped_column(Boolean, default=False)
-    oci_card_no: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    passport_no: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    oci_card_no: Mapped[str | None] = mapped_column(Encrypted, nullable=True)
+    passport_no: Mapped[str | None] = mapped_column(Encrypted, nullable=True)
     nri_status: Mapped[bool] = mapped_column(Boolean, default=False)
     nri_country: Mapped[str | None] = mapped_column(String(40), nullable=True)
     pwd: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -197,7 +199,8 @@ class AuditEvent(Base):
     entity: Mapped[str] = mapped_column(String(40))
     entity_id: Mapped[str] = mapped_column(String(50))
     details: Mapped[dict] = mapped_column(JSON, default=dict)
-    prev_hash: Mapped[str] = mapped_column(String(64))
+    # Unique: two events claiming the same predecessor would be a forked chain, so the database refuses it.
+    prev_hash: Mapped[str] = mapped_column(String(64), unique=True)
     hash: Mapped[str] = mapped_column(String(64))
 
 

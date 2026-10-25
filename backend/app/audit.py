@@ -15,7 +15,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 
-from sqlalchemy import event, select
+from sqlalchemy import event, select, text
 from sqlalchemy.orm import Session
 
 from .models import AuditCheckpoint, AuditEvent
@@ -24,8 +24,15 @@ GENESIS = "0" * 64
 log = logging.getLogger("vidyapramaan.audit")
 
 # Appending reads the last hash and inserts after it; two writers interleaving would fork the chain.
-# The lock is held from the first append in a transaction until that transaction ends.
+# Three layers stop that: a process lock held from the first append until the transaction ends; on
+# PostgreSQL, a transaction-scoped advisory lock shared by every app instance; and a unique index on
+# prev_hash, so a fork is refused by the database even if both locks were bypassed.
 _LOCK = threading.Lock()
+_PG_LOCK_KEY = 7_300_418
+
+
+class AuditUnavailable(RuntimeError):
+    """The audit trail could not be locked; the change is refused rather than recorded unaudited."""
 
 
 @event.listens_for(Session, "after_transaction_end")
@@ -38,9 +45,11 @@ def _acquire(db: Session) -> None:
     if db.info.get("audit_lock"):
         return
     if not _LOCK.acquire(timeout=15):
-        log.error("audit lock wait timed out; appending without it")
-        return
+        log.error("audit lock wait timed out; refusing the change")
+        raise AuditUnavailable("Audit trail busy; nothing was changed. Try again.")
     db.info["audit_lock"] = True
+    if db.get_bind().dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": _PG_LOCK_KEY})
 
 
 def _digest(prev_hash: str, ts: str, actor: str, role: str, action: str,

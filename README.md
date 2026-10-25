@@ -110,17 +110,19 @@ The repository includes a `Dockerfile` (UI + API in one container, synthetic dat
 | Planted dual enrolments / identity duplicates / contact clusters found | 164/164 · 57/57 · 4/4 | Regression checks on planted cases, not accuracy on real data |
 | Planted anomalous institutions in the top-46 risk ranking | 42/46 | |
 | Defect types caught in the demo upload | 17/17, with 0 false flags on 56 clean rows | |
-| National scan over 49,053 enrolments | ≈2 s, run in the background after each submission | |
+| National scan over 49,053 enrolments | 1.6 s on one CPU, run in the background after each submission | Measured at 49k records; national scale (≈1 crore) is a pilot goal, not yet tested |
 
 ## Tests
 
 ```bash
-cd backend && ../.venv/bin/python -m pytest -q          # 59 tests on an isolated database
+cd backend && ../.venv/bin/python -m pytest -q --cov=app   # 65 tests on an isolated database, 93% line coverage
 VP_DATABASE_URL=postgresql+psycopg://user:pw@host/db ../.venv/bin/python -m pytest -q   # same tests on PostgreSQL 16
-cd e2e && npm install && npm test   # browser walkthrough of all 7 roles (server running on :8000)
+cd backend && alembic upgrade head && alembic check        # versioned schema migrations (rollback: alembic downgrade -1)
+cd e2e && npm install && npm test      # browser walkthrough of all 7 roles (server running on :8000)
+cd e2e && npm run a11y                 # axe-core WCAG 2.1 AA check of 17 screens, desktop and phone
 ```
 
-The browser walkthrough resets the demo, drives every role, fails on any browser console error, measures the live dashboard update, and saves the screenshots in `docs/screenshots/`. CI runs the backend tests (SQLite and PostgreSQL) and the frontend build on every push.
+The browser walkthrough resets the demo, drives every role, fails on any browser console error, measures the live dashboard update, and saves the screenshots in `docs/screenshots/`. CI runs on every push: tests on SQLite and PostgreSQL with a coverage floor, migrations up, drift check, down and up again, bandit, pip-audit, npm audit, the browser walkthrough and the accessibility check. Results are summarised in [docs/SECURITY.md](docs/SECURITY.md#evidence-run-on-every-push-ci).
 
 ## Architecture
 

@@ -113,7 +113,7 @@ export default function ReviewQueue() {
               </div>
             )}
             {Array.isArray(open.evidence.changes) && (
-              <div className="mt-4 overflow-x-auto">
+              <div className="mt-4 overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
                 <div className="label">Changes made to the record</div>
                 <table className="w-full text-xs"><thead><tr><th className="th">Field</th><th className="th">Before</th><th className="th">After</th></tr></thead>
                   <tbody>{(open.evidence.changes as { field: string; old: unknown; new: unknown }[]).map((c) => (

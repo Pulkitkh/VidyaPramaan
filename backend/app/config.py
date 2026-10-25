@@ -51,4 +51,9 @@ def sn_cap_fraction(sn_type: str, level: str) -> float:
     return float(caps.get(level, caps.get("UG", 0)))
 
 
+def sn_cap_verified(sn_type: str) -> bool:
+    """Only caps confirmed against a published source may reject a row; others raise a warning for review."""
+    return bool(SUPERNUMERARY[sn_type].get("verified"))
+
+
 RISK_ALERT_THRESHOLD = 70

@@ -34,6 +34,12 @@ function extractToken(input: string): string {
   try { const u = new URL(s); return u.searchParams.get("t") ?? s; } catch { return s; }
 }
 
+function deviceStatus(r: OfflineResult): string {
+  if (r.status === "UNKNOWN" || !r.listAt) return "revocation status unknown (no revocation list on this device yet)";
+  const at = fmt.dateTime(r.listAt) + (r.listExpired ? ", list out of date" : "");
+  return r.status === "NOT_REVOKED" ? `not revoked as of ${at}` : `${(r.status ?? "").toLowerCase()} as of ${at}`;
+}
+
 function TokenVerifier() {
   const [params] = useSearchParams();
   const [input, setInput] = useState(params.get("t") ?? "");
@@ -56,7 +62,7 @@ function TokenVerifier() {
   const ok = res?.verdict === "VERIFIED";
   return (
     <Card title={<span className="inline-flex items-center gap-2"><QrCode size={16} /> Check a certificate QR</span>}
-      subtitle="Scan the QR or paste its link. The signature is checked against AICTE's public key; status is checked live.">
+      subtitle="Scan the QR or paste its link. The signature is checked against the issuer's public key; status is checked live.">
       <label className="label" htmlFor="tok">QR link or token</label>
       <textarea id="tok" className="input mono min-h-[76px] text-xs" value={input} onChange={(e) => setInput(e.target.value)}
         placeholder="https://<portal>/verify?t=eyJhbGciOi..." />
@@ -65,12 +71,16 @@ function TokenVerifier() {
       </button>
       {local?.supported && (
         <div className={`mt-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${local.valid ? "border-[#bfe5bf] bg-[#f3fbf3]" : "border-[#f2c4c4] bg-[#fffafa]"}`}>
-          <Smartphone size={14} /> On this device: signature {local.valid ? "valid" : "INVALID"} (Ed25519, checked without contacting the server)
+          <Smartphone size={14} className="shrink-0" />
+          <span>
+            On this device: signature {local.valid ? "valid" : "INVALID"} (Ed25519, checked without contacting the server)
+            {local.valid && local.status && <> · {deviceStatus(local)}</>}
+          </span>
         </div>
       )}
       {offline && (
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs text-ink-2">
-          <WifiOff size={14} /> No connection to the registry: the signature result above stands, but whether the credential was revoked since issue could not be checked.
+          <WifiOff size={14} /> No connection to the registry: the signature result above stands; revocation is known only up to the time of the list cached on this device.
         </div>
       )}
       {res && (

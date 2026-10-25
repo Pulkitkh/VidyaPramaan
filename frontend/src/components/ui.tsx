@@ -83,7 +83,7 @@ export function RiskPill({ score }: { score: number }) {
   return (
     <span className={`chip ring-1 ring-inset tabular ${b.cls}`} title={`Risk score ${score.toFixed(0)} / 100`}>
       <span className="font-semibold">{score.toFixed(0)}</span>
-      <span className="opacity-80">{b.label}</span>
+      <span>{b.label}</span>
     </span>
   );
 }
@@ -91,7 +91,8 @@ export function RiskPill({ score }: { score: number }) {
 export function Meter({ value, max, over = false, label }: { value: number; max: number; over?: boolean; label?: string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
-    <div className="w-full" aria-label={label}>
+    <div className="w-full" role="progressbar" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}
+      aria-label={label ?? `${value} of ${max}`}>
       <div className="h-2 w-full overflow-hidden rounded-full bg-[#eceae4]">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, background: over ? "#d03b3b" : "#2a78d6" }} />
       </div>

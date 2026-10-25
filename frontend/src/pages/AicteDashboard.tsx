@@ -138,7 +138,7 @@ export default function AicteDashboard() {
             <ResponsiveContainer>
               <BarChart data={findings} layout="vertical" margin={{ left: 8, right: 24 }} barCategoryGap={6}>
                 <CartesianGrid horizontal={false} stroke="#e1e0d9" />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#898781" }} axisLine={{ stroke: "#c3c2b7" }} tickLine={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: "#6b6963" }} axisLine={{ stroke: "#c3c2b7" }} tickLine={false} />
                 <YAxis type="category" dataKey="label" width={170} tick={{ fontSize: 11, fill: "#52514e" }} axisLine={false} tickLine={false} />
                 <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(42,120,214,0.06)" }} />
                 <Bar dataKey="value" fill="#2a78d6" radius={[0, 4, 4, 0]} maxBarSize={18}>
@@ -154,7 +154,7 @@ export default function AicteDashboard() {
               <BarChart data={sn} margin={{ top: 8, right: 8 }} barCategoryGap="30%">
                 <CartesianGrid vertical={false} stroke="#e1e0d9" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#52514e" }} axisLine={{ stroke: "#c3c2b7" }} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#898781" }} axisLine={false} tickLine={false} width={48} />
+                <YAxis tick={{ fontSize: 11, fill: "#6b6963" }} axisLine={false} tickLine={false} width={48} />
                 <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(42,120,214,0.06)" }} />
                 <Bar dataKey="value" fill="#2a78d6" radius={[4, 4, 0, 0]} maxBarSize={56} />
               </BarChart>
@@ -164,7 +164,7 @@ export default function AicteDashboard() {
       </div>
 
       <Card className="mt-5" title="States at a glance" subtitle="Sorted by approved intake" pad={false}>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
           <table className="w-full min-w-[720px]">
             <thead><tr>
               <th className="th">State</th><th className="th text-right">Institutions</th><th className="th text-right">Approved intake</th>

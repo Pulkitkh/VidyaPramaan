@@ -8,6 +8,8 @@ import pytest
 
 from harness import SUMMARY, client, login
 
+from app.credentials import verify_compact  # noqa: E402  (after harness sets the environment)
+
 
 @pytest.fixture(scope="module")
 def aicte():
@@ -241,6 +243,25 @@ def test_exit_closes_dual_enrolment_and_revokes_credential(aicte, inst):
     assert not still
     status = client.get(f"/api/credentials/{cd['credential_id']}/status").json()
     assert status["status"] == "REVOKED" and status["enrolment_status"] == "TRANSFERRED_OUT"
+    # Offline verifiers learn about the revocation from the signed list they cache while online.
+    listed = verify_compact(client.get("/api/credentials/status-list").json()["token"])
+    assert listed[0] and cd["credential_id"] in listed[1]["revoked"]
+
+
+def test_issuer_is_a_resolvable_did_web_with_the_signing_key():
+    doc = client.get("/.well-known/did.json")
+    assert doc.status_code == 200 and doc.headers["content-type"].startswith("application/did+json")
+    d = doc.json()
+    assert d["id"].startswith("did:web:") and "example" not in d["id"]
+    jwk = d["verificationMethod"][0]["publicKeyJwk"]
+    assert jwk["x"] == client.get("/api/issuer/jwk").json()["x"]
+    assert d["assertionMethod"] == [f"{d['id']}#key-1"]
+    lst = client.get("/api/credentials/status-list").json()
+    ok, claims = verify_compact(lst["token"])
+    assert ok and claims["iss"] == d["id"] and claims["typ"] == "revocation-list" and claims["exp"] > claims["iat"]
+    # An edited list fails its signature, so it cannot hide a revocation.
+    h, p, sg = lst["token"].split(".")
+    assert not verify_compact(f"{h}.{p[:-2]}AA.{sg}")[0]
 
 
 # --------------------------------------------------------------------------- roles
@@ -421,3 +442,97 @@ def test_sign_in_works_while_a_slow_scan_holds_the_write_lock(monkeypatch):
     r = client.post("/api/auth/demo-login", json={"username": "aicte.admin"})
     t.join()
     assert r.status_code == 200, r.text
+
+
+def test_unverified_caps_send_rows_for_review_instead_of_rejecting(monkeypatch, inst):
+    from app import config
+
+    def int002(rows):
+        out = validate(inst, rows)
+        items = out["rows"] if isinstance(out, dict) else out
+        return [f for row in items for f in row["findings"] if f["code"] == "INT-002"]
+
+    verified = int002(sample_rows())
+    assert verified and all(f["severity"] == "ERROR" and f["evidence"]["cap_verified"] for f in verified)
+    monkeypatch.setitem(config.SUPERNUMERARY["TFW"], "verified", False)
+    unverified = int002(sample_rows())
+    assert unverified and all(f["severity"] == "WARNING" and "not yet confirmed" in f["message"] for f in unverified)
+
+
+# --------------------------------------------------------------------------- spreadsheet edge cases
+def test_spreadsheet_exports_from_real_offices_are_read_correctly():
+    from openpyxl import Workbook
+
+    from app.validation import _date, normalise, parse_csv, parse_xlsx
+    rows = sample_rows()[:3]
+    header = list(rows[0])
+    # Semicolon-separated, Windows-1252, with blank lines: Excel's "CSV" save on many office PCs.
+    text = ";".join(header) + "\r\n\r\n" + "\r\n".join(";".join(r[h] for h in header) for r in rows) + "\r\n;;;\r\n"
+    parsed = parse_csv(text.encode("cp1252"))
+    assert len(parsed) == 3 and parsed[0]["roll_no"] == rows[0]["roll_no"]
+    # Workbook whose first sheet is instructions and whose data sheet has a title row above the header.
+    wb = Workbook()
+    wb.active.title = "Read me"
+    wb.active.append(["Fill one row per student"])
+    ws = wb.create_sheet("Data")
+    ws.append(["Demo Institute of Technology: admissions 2026-27"])
+    ws.append(header)
+    for r in rows:
+        ws.append([int(r[h]) if h == "apaar_id" and r[h].isdigit() else r[h] for h in header])
+    buf = io.BytesIO()
+    wb.save(buf)
+    got = parse_xlsx(buf.getvalue())
+    assert len(got) == 3 and got[0]["apaar_id"] == rows[0]["apaar_id"]
+    # Excel date serials, month names, scientific-notation IDs, invisible characters and stray spaces.
+    assert _date("39448") == date(2008, 1, 1) and _date("21-Jun-2008") == date(2008, 6, 21)
+    r, problems = normalise({"apaar_id": "8.26869E+11", "name": "  Kavitha​   Raman ", "mobile": "9.18028E+09"})
+    assert r["apaar_id"] == "" and r["name"] == "Kavitha Raman"
+    assert sorted(p["evidence"]["field"] for p in problems if "scientific" in p["message"]) == ["apaar_id", "mobile"]
+    assert normalise({"apaar_id": "826868856122.0"})[0]["apaar_id"] == "826868856122"
+
+
+def test_uploading_the_same_file_twice_creates_nothing_new(inst):
+    rows = [clean_row(roll_no="T-TWICE-1", name="Meenakshi Sundaram", father_name="Sundaram Pillai")]
+    first = client.post("/api/institution/uploads", headers=inst, files={"file": ("a.csv", as_csv(rows), "text/csv")}).json()
+    assert client.post(f"/api/institution/uploads/{first['id']}/commit", headers=inst).json()["created"] == 1
+    again = client.post("/api/institution/uploads", headers=inst, files={"file": ("a.csv", as_csv(rows), "text/csv")}).json()
+    assert again["rows"][0]["is_update"]
+    res = client.post(f"/api/institution/uploads/{again['id']}/commit", headers=inst).json()
+    assert res["created"] == 0
+
+
+def test_audit_chain_cannot_fork_or_record_without_its_lock(monkeypatch):
+    from sqlalchemy.exc import IntegrityError
+
+    from app import audit
+    from app.db import SessionLocal
+    from app.models import AuditEvent
+    with SessionLocal() as db:
+        head = db.scalars(audit.select(AuditEvent).order_by(AuditEvent.id.desc()).limit(1)).first()
+        db.add(AuditEvent(ts=head.ts, actor="x", role="x", action="FORK", entity="x", entity_id="1", details={},
+                          prev_hash=head.prev_hash, hash="f" * 64))
+        with pytest.raises(IntegrityError):
+            db.flush()
+        db.rollback()
+    # If the lock cannot be taken, the change is refused (503), never written outside the chain order.
+    class Stuck:
+        def acquire(self, timeout=None):
+            return False
+    monkeypatch.setattr(audit, "_LOCK", Stuck())
+    with SessionLocal() as db, pytest.raises(audit.AuditUnavailable):
+        audit.record(db, "x", "x", "TEST", "x", 1)
+
+
+def test_contact_details_and_document_numbers_are_encrypted_at_rest():
+    from sqlalchemy import text
+
+    from app.db import SessionLocal
+    from app.models import Student
+    with SessionLocal() as db:
+        s = db.scalars(Student.__table__.select().where(Student.mobile.is_not(None)).limit(1)).first()
+        raw = db.execute(text("SELECT mobile, email FROM student WHERE id = :i"), {"i": s}).one()
+        student = db.get(Student, s)
+        assert raw.mobile.startswith("enc1:") and student.mobile not in raw.mobile
+        assert student.mobile.isdigit() and len(student.mobile) == 10
+        raw_pp = db.execute(text("SELECT passport_no FROM student WHERE passport_no IS NOT NULL LIMIT 1")).scalar()
+        assert raw_pp.startswith("enc1:")

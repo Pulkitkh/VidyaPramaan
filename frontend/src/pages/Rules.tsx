@@ -24,7 +24,7 @@ export default function Rules() {
       <PageHeader title={t("Rules in force")} subtitle={<>{r.title} · ruleset <span className="mono">{r.version}</span>. Every number below is data in a versioned file per academic year, not code, so a handbook addendum or circular is a new file.</>} />
       <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
         <Card title="Supernumerary caps (share of approved intake)" subtitle="Seats on top of approved intake; each has its own cap and cannot be filled by regular candidates" pad={false}>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
             <table className="w-full min-w-[560px] text-sm">
               <thead><tr><th className="th">Quota</th><th className="th text-right">UG</th><th className="th text-right">PG</th><th className="th text-right">Diploma</th><th className="th">Source</th></tr></thead>
               <tbody>

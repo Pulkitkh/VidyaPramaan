@@ -25,16 +25,30 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
-      - run: pip install -r backend/requirements.txt
-      - name: Tests (SQLite)
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+      - run: pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+      - name: Tests with coverage (SQLite)
         working-directory: backend
-        run: python -m pytest -q
+        run: python -m pytest -q --cov=app --cov-report=term --cov-fail-under=90
       - name: Tests (PostgreSQL 16)
         working-directory: backend
         env:
           VP_DATABASE_URL: postgresql+psycopg://postgres@localhost:5432/vp
         run: python -m pytest -q
+      - name: Migrations (upgrade, drift check against models, full rollback, upgrade again)
+        working-directory: backend
+        env:
+          VP_DATABASE_URL: postgresql+psycopg://postgres@localhost:5432/vp_migrations
+        run: |
+          psql -h localhost -U postgres -c "CREATE DATABASE vp_migrations"
+          alembic upgrade head && alembic check && alembic downgrade base && alembic upgrade head
+      - name: Static security analysis (bandit)
+        working-directory: backend
+        run: bandit -q -r app
+      - name: Known vulnerabilities in Python dependencies (pip-audit)
+        run: pip-audit -r backend/requirements.txt
 
   frontend:
     runs-on: ubuntu-latest
@@ -49,3 +63,39 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      - name: Known vulnerabilities in shipped dependencies (npm audit)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=moderate
+
+  browser:
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -r backend/requirements.txt
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Seed and start the app
+        working-directory: backend
+        env:
+          VP_DEMO_MODE: "1"
+        run: |
+          python -m app.seed > /dev/null
+          nohup uvicorn app.main:app --port 8000 > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/api/meta > /dev/null && break; sleep 1; done
+      - name: Seven-role browser walkthrough
+        working-directory: e2e
+        run: node demo_walkthrough.mjs /tmp/shots
+      - name: Accessibility (axe-core, WCAG 2.1 AA, desktop and phone)
+        working-directory: e2e
+        run: node accessibility.mjs /tmp/accessibility_report.json

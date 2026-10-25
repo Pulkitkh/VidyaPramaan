@@ -138,7 +138,7 @@ export default function StudentHome() {
 
         <div className="space-y-5">
           <Card title={<span className="inline-flex items-center gap-2"><ShieldCheck size={16} /> Verifiable credential</span>}
-            subtitle="Signed by AICTE (Ed25519). Anyone can verify it, even offline.">
+            subtitle="Signed by the registry issuer key (Ed25519). Anyone can check the signature, even offline.">
             {cred ? (
               <>
                 <img src={`/api/credentials/${encodeURIComponent(cred.id)}/qr.png`} alt="Credential QR code" className="mx-auto h-52 w-52 rounded-lg border border-line" />

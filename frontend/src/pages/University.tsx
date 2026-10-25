@@ -59,7 +59,7 @@ export default function University() {
           actions={<div className="relative w-56"><Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3" />
             <input className="input pl-8 text-xs" placeholder="Name or roll number" value={q} onChange={(e) => setQ(e.target.value)} /></div>}>
           {!feed.data ? <Spinner /> : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Scrollable table">
               <table className="w-full min-w-[760px]">
                 <thead><tr><th className="th">Student</th><th className="th">Student ID</th><th className="th">APAAR ID</th><th className="th">Programme</th><th className="th">Verification QR</th></tr></thead>
                 <tbody>

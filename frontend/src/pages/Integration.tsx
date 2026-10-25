@@ -83,7 +83,7 @@ export default function Integration() {
       <div className="grid gap-4 lg:grid-cols-2">
         {SNIPPETS.map((s) => (
           <Card key={s.title} title={s.title}>
-            <pre className="mono overflow-x-auto rounded-lg bg-navy-900 p-4 text-[12px] leading-relaxed text-[#dbe7f7]">{s.code}</pre>
+            <pre tabIndex={0} className="mono overflow-x-auto rounded-lg bg-navy-900 p-4 text-[12px] leading-relaxed text-[#dbe7f7]">{s.code}</pre>
           </Card>
         ))}
       </div>
