@@ -21,10 +21,14 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 ## Slide 2: proposed solution
 | Claim | Evidence |
 |---|---|
+| 29.6 lakh enrolments in AICTE institutions, 2025-26 | Lok Sabha reply: 29,58,870 for 2025-26 (reported by Careers360, "342 AICTE-approved technical institutions shut") |
+| 24.25 crore APAAR IDs issued (Mar 2026) | Rajya Sabha reply, figure as of 30 Mar 2026 (sansad.in) |
+| Only total enrolment reaches AICTE (except PGDM) | SIH26263 problem statement text (reference 1) |
+| Records hard to verify at source | SIH26263 problem statement text (reference 1) |
 | Upload by Excel, CSV or ERP API | `test_excel_upload_matches_csv`, `test_json_api_validate_and_submit`, `test_erp_headers_are_mapped_automatically`, `test_api_keys_and_idempotent_submit` |
 | 31 explained rules | `test_rule_catalogue_has_31_explained_rules` |
 | AISHE data 2–3 years late | AISHE 2022-23 and 2023-24 reports released together in 2026 (deck reference 5) |
-| Excess admission = 5× fee per student | *FORE School of Management v AICTE*, Supreme Court, 21 Jun 2019 (reference 3); rules file `excess_admission_penalty` |
+| Excess admission = 5× fee per student | AICTE Approval Process Handbook (fine of five times the total fee per excess student); *FORE School of Management v AICTE*, Supreme Court, 21 Jun 2019 (reference 3); rules file `excess_admission_penalty` |
 | Seat #61 of 60 blocked at upload and at submit | `test_intake_overflow_counts_seats`, `test_commit_never_exceeds_intake`, `test_commit_revalidates_a_stale_batch` |
 | Cross-college match + shared-contact rings | DUP-002 / DUP-003 in `test_upload_flags_every_planted_defect`; `test_shared_contact_clusters_are_found_with_members` |
 | Signed QR checks offline; consent for more | `test_qr_token_verifies_and_detects_tampering`; walkthrough asserts "On this device: signature valid"; `test_consent_flow_discloses_only_scope` |
@@ -64,7 +68,8 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Officer decides with a reason; decision remembered | `test_decisions_need_a_reason_and_survive_the_next_scan`, `test_officer_decision_is_audited` |
 | Rules file per academic year with sources | `backend/app/rules/aicte_2026_27.json`; *Rules in force* page (`26_rules_in_force.png`) |
 | ERP headers auto-mapped, Excel template, API keys, Hindi, phone app | `test_erp_headers_are_mapped_automatically`, `test_excel_template_has_dropdowns_and_report_has_diversity`, `test_api_keys_and_idempotent_submit`; walkthrough Hindi step and 390 px mobile screenshot; PWA manifest |
-| Roadmap and cost | Plan and estimate, not measured. Cost basis: about 1 crore active records, two app servers plus managed PostgreSQL with backups on MeitY-empanelled cloud, priced at public cloud rates in India |
+| Roadmap | Plan, not measured |
+| Open-source stack, no licence fees; prototype runs on one free 512 MB instance | Dependency licences as below; live demo is a single Render free web service (512 MB RAM) |
 
 ## Slide 5: impact
 | Claim | Evidence |
@@ -78,6 +83,8 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Today: 42 excess seats → ₹23.1 cr fine; AISHE 2022-23 published only in 2026; “a number of students have mismatch in Aadhaar and APAAR ID details” | FORE School of Management v AICTE, Supreme Court, 21 Jun 2019; AISHE 2022-23 and 2023-24 reports (released Jul 2026); Cluster University Srinagar notice on APAAR mismatch (cusrinagar.edu.in), 2026 |
 | With Vidya Pramaan: seat #61 stopped on upload; same-day view, duplicates within minutes; mismatches returned with the reason | `test_intake_overflow_counts_seats`; background national scan after each submission (live run: dashboard updated in under 4 s, scan finished within the minute); on-device QR check in the walkthrough |
 | Open-source, no licence cost | All dependencies are MIT / BSD / Apache licensed; project is MIT (`LICENSE`) |
+| APAAR opt-outs never refused | Orissa HC, *Rohit Anand Das v State of Odisha* (Dec 2025); Supreme Court direction to add an opt-out to the APAAR consent form (Jul 2026, LiveLaw); `test_provisional_ids_for_students_without_apaar` |
+| Paper returns and verification letters replaced by upload + QR | Expected benefit, not measured |
 
 Impact statements about fairness, paperwork and fraud are expected benefits, not measured results.
 
@@ -89,7 +96,8 @@ Impact statements about fairness, paperwork and fraud are expected benefits, not
 | AISHE publishes institution-level aggregates with a 2–3 year lag | AISHE 2022-23 and 2023-24 reports released in 2026 |
 | No published APAAR check digit | No official specification found; assumption A-02 in `docs/ASSUMPTIONS.md` |
 | FN/OCI/PIO caps 15% UG, 25% PG for 2026-27 | APH 2026-27 addendum (reported by Careers360); rules file marks it verified |
-| APAAR is voluntary | MoE consent guidance; Supreme Court proceedings on APAAR opt-out (2026) |
+| APAAR is voluntary; opt-out must be offered | MoE consent guidance; Orissa HC, Rohit Anand Das (Dec 2025); Supreme Court direction (Jul 2026), reported by LiveLaw and SCC Online |
+| AICTE enrolment and APAAR totals | Lok Sabha and Rajya Sabha replies (sansad.in) |
 | DPDP Act 2023, Rules 2025 phased to 2027 | Law-firm summaries of the notified rules (L&S, AZB, SCC Online) |
 
 ## Field validation (slide 6, when present)

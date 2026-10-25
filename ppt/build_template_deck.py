@@ -232,8 +232,11 @@ def slide2(s, team_name):
     tf = title.text_frame
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
     tf.margin_top = tf.margin_bottom = Inches(0)
-    text(s, 3.2, 0.8, 6.9, 0.34, "APAAR-linked student data, validation & verification platform for AICTE",
-         size=14, color=GREY, align=PP_ALIGN.CENTER)
+    text(s, 2.2, 0.8, 8.9, 0.34, [[("29.6 lakh", {"bold": True, "color": NAVY}),
+                                    (" enrolments in AICTE institutions (2025-26)  ·  ", {"color": GREY}),
+                                    ("24.25 crore", {"bold": True, "color": NAVY}),
+                                    (" APAAR IDs issued (Mar 2026)", {"color": GREY})]],
+         size=12, align=PP_ALIGN.CENTER)
     remove(find(s, "TextBox 8"))
     text(s, 0.3, 1.2, 12.7, 0.38, [[("❖ ", {"color": BLUE}), ("Proposed Solution (Describe your Idea/Solution/Prototype)", {})]],
          size=17, bold=True, color=NAVY)
@@ -254,10 +257,10 @@ def slide2(s, team_name):
 
     # How it addresses the problem
     pointer(s, 0.35, 3.5, 6.2, "How it addresses the problem")
-    pairs = [("Only totals reach AICTE; AISHE is 2–3 years late", "Student-level records keyed on APAAR, live"),
-             ("Excess admission = 5× fee fine per student, found late", "Seat #61 of 60 blocked at upload and at submit"),
-             ("Same student at 2 colleges; agent-filled admissions", "Cross-college match + shared-contact rings"),
-             ("Records can't be verified at source", "Signed QR (checks offline) + consent for more")]
+    pairs = [("Only total enrolment reaches AICTE (except PGDM), per the PS", "Student-level records keyed on APAAR, live"),
+             ("Excess admission: fine of 5× the fee per student (APH)", "Seat #61 of 60 blocked at upload and at submit"),
+             ("Same student enrolled at two colleges goes unseen", "Cross-college match + shared-contact rings"),
+             ("Records are hard to verify at source (PS)", "Signed QR (checks offline) + consent for more")]
     for i, (prob, sol) in enumerate(pairs):
         y = 3.98 + i * 0.72
         label_box(s, 0.35, y, 2.75, 0.6, [[("✖  ", {"color": RED, "bold": True}), (prob, {})]], fill=PALE_RED,
@@ -392,7 +395,7 @@ def slide4(s):
     text(s, 0.45, y, 12.45, 0.3, [[("Roadmap  ", {"bold": True, "color": ORANGE}),
                                    ("M1–3 pilot: 1 state, 50 colleges → M4–6 API Setu, SSO, STQC audit → M7–12 national   ", {}),
                                    ("Cost  ", {"bold": True, "color": ORANGE}),
-                                   ("open source, no licence fees; est. ₹20–25 lakh/yr MeitY-empanelled cloud", {})]],
+                                   ("open-source stack, no licence fees; the whole prototype runs on one free 512 MB instance", {})]],
          size=10, color=INK)
 
 
@@ -430,9 +433,9 @@ def slide5(s):
              size=9.5, color=INK, anchor=MSO_ANCHOR.TOP, spacing=2)
 
     pointer(s, 7.2, 1.2, 5.78, "Benefits of the solution (social, economic, environmental, etc.)")
-    ben = [("LuHeartHandshake", "Social", "fair admissions; no student\nexcluded for opting out", GREEN),
-           ("LuIndianRupee", "Economic", "no licence cost; one upload\nreplaces repeated returns", BLUE),
-           ("LuLeaf", "Environmental", "paperless returns and\nverification; no courier checks", GREEN),
+    ben = [("LuHeartHandshake", "Social", "APAAR opt-outs never refused,\nas the Supreme Court requires", GREEN),
+           ("LuIndianRupee", "Economic", "MIT / BSD / Apache stack: no\nlicence fees; one upload, all users", BLUE),
+           ("LuLeaf", "Environmental", "paper returns and verification\nletters replaced by upload + QR", GREEN),
            ("LuLandmark", "Governance", "audited evidence pack for\nreview and show-cause", NAVY)]
     bw, bh = 2.83, 1.38
     for i, (ic, t1, t2, col) in enumerate(ben):
@@ -486,15 +489,16 @@ def slide6(s, live_url, repo_url, build):
             ("Supreme Court, FORE School of Management v AICTE (2019): 5× fee per excess student", "sci.gov.in"),
             ("NAD on DigiLocker: consent-based verification (FAQ)", "nad.digilocker.gov.in"),
             ("AISHE 2022-23 & 2023-24 reports (released 2026)", "aishe.gov.in"),
-            ("APAAR consent and opt-out: MoE guidance; Supreme Court proceedings 2026", "apaar.education.gov.in"),
+            ("APAAR opt-out: Orissa HC, Rohit Anand Das (Dec 2025); Supreme Court direction (Jul 2026)", "scconline.com · livelaw.in"),
+            ("Parliament replies: AICTE enrolment 2025-26 (Lok Sabha); APAAR IDs at 30 Mar 2026 (Rajya Sabha)", "sansad.in"),
             ("Digital Personal Data Protection Act 2023; DPDP Rules 2025", "meity.gov.in"),
             ("W3C Verifiable Credentials; RFC 8032 (Ed25519)", "w3.org · rfc-editor.org"),
-            ("Liu et al. (2008) Isolation Forest; IDinsight (2021) matching Indian names", "doi.org/10.1109/ICDM.2008.17 · idinsight.org")]
+            ("Liu, Ting & Zhou (2008) Isolation Forest; IDinsight on matching Indian names", "doi.org/10.1109/ICDM.2008.17 · idinsight.org")]
     text(s, 7.6, 1.6, 5.4, 0.3, "References", size=13, bold=True, color=NAVY)
     paras = []
     for i, (t, link) in enumerate(refs, 1):
         paras.append([(f"{i}. {t}  ", {"size": 10}), (link, {"size": 9.5, "color": BLUE})])
-    text(s, 7.6, 1.92, 5.38, 3.45, paras, size=10, anchor=MSO_ANCHOR.TOP, spacing=3)
+    text(s, 7.6, 1.92, 5.38, 3.45, paras, size=10, anchor=MSO_ANCHOR.TOP, spacing=2)
     if HAS_QUOTE:
         who = ", ".join(x for x in (FIELD.get("speaker_role"), FIELD.get("institution")) if x)
         text(s, 7.6, 4.88, 5.38, 0.5, [[("From the field:  ", {"bold": True, "color": ORANGE, "size": 10}),
@@ -520,7 +524,7 @@ def slide6(s, live_url, repo_url, build):
 NOTES = [
     "Vidya Pramaan: one student, one APAAR ID, one verifiable record. A working prototype for SIH26263, live at the "
     "link on this slide, with seven demo roles and synthetic data only.",
-    "AICTE today sees totals, late. Excess admission costs five times the fee per student, yet it surfaces in annual "
+    "29.6 lakh enrolments in AICTE institutions in 2025-26, 24.25 crore APAAR IDs, yet AICTE today sees totals, late. Excess admission costs five times the fee per student, yet it surfaces in annual "
     "returns. Our flow is the one the problem statement asks for: upload, APAAR check, verification, central record, "
     "live monitoring, consented verification. What is new: name matching that keeps twins apart, ghost-admission "
     "rings, decisions that are remembered, signed audit checkpoints, rules as data, and APAAR on every degree.",
@@ -528,7 +532,7 @@ NOTES = [
     "accepted rows trigger a national scan and risk scoring against peers. The screenshot is the real prototype: "
     "77 rows, 65 accepted, 12 returned. Scan the QR to try it.",
     "Feasibility is measured, not promised. On name pairs written independently of our data: precision 0.79, recall "
-    "0.92, against 0.65 and 0.68 for the usual fuzzy match. No twin is ever merged. Planted cases are regression "
+    "0.92, against 0.65 and 0.68 for our earlier fuzzy matcher. None of the 80 seeded twin pairs is merged. Planted cases are regression "
     "checks, and we say so. 59 tests on SQLite and PostgreSQL. Each risk has a built answer, and the roadmap goes from "
     "one-state pilot to national rollout within a year on open-source software.",
     "Everyone gains from one national view: AICTE and regulators catch problems at submission, institutions get "
