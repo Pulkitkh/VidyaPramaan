@@ -1,0 +1,11 @@
+{
+ "date": "2026-10-25",
+ "tests": "65 passed, 1 warning in 43.69s",
+ "tests_passed": true,
+ "coverage_percent": 93,
+ "accessibility": {
+  "standard": "WCAG 2.1 A/AA (axe-core)",
+  "screen_checks": 34,
+  "violations": 0
+ }
+}
