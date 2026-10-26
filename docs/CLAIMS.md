@@ -26,7 +26,7 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | 24.25 crore APAAR IDs issued (Mar 2026) | Rajya Sabha reply, figure as of 30 Mar 2026 (sansad.in) |
 | Only total enrolment reaches AICTE (except PGDM) | SIH26263 problem statement text (reference 1) |
 | Records hard to verify at source | SIH26263 problem statement text (reference 1) |
-| "What is new": none of APAAR, NAD / DigiLocker, ABC checks admissions against approved intake | NAD FAQ, AISHE reports (refs 4–5); ABC holds credits only; comparison table on slide 6 |
+| "What is new": no national system checks each admission against approved intake (APAAR, NAD / DigiLocker, ABC, AISHE compared on slide 6) | NAD FAQ, AISHE reports (refs 4–5); ABC holds credits only; comparison table on slide 6 |
 | Monitoring "after every submission"; records "per upload" | Background national scan after each commit (`main.refresh_in_background`); benchmark scan 1.6 s over 49,053 enrolments |
 | Upload by Excel, CSV or ERP API | `test_excel_upload_matches_csv`, `test_json_api_validate_and_submit`, `test_erp_headers_are_mapped_automatically`, `test_api_keys_and_idempotent_submit` |
 | 31 explained rules | `test_rule_catalogue_has_31_explained_rules` |
@@ -88,8 +88,8 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Students control who sees the record | Consent approve / deny / revoke and access-log tests |
 | Audited evidence pack for review and show-cause | `test_evidence_pack_for_show_cause` |
 | Certificate with APAAR ID + student ID + QR; QR verified | `test_certificate_pdf`; screenshots `25_certificate.png`, `23_public_qr_verified.png` |
-| Today: ₹23.1 cr = 42 excess seats × ₹11 lakh fee × 5; AISHE 2022-23 data published in 2026; “a number of students have mismatch in Aadhaar and APAAR ID details” | FORE School of Management v AICTE, Supreme Court, 21 Jun 2019; AISHE 2022-23 and 2023-24 reports (released Jul 2026); Cluster University Srinagar notice on APAAR mismatch (cusrinagar.edu.in), 2026 |
-| With Vidya Pramaan: seat #61 refused at upload, the same day; national view refreshed after each submission; mismatch returned with its reason | `test_intake_overflow_counts_seats`; background national scan after each submission; APR-004 findings in `test_upload_flags_every_planted_defect` |
+| Today: ₹23.1 cr fine = 42 seats × ₹11 lakh × 5 (SC, 2019); AISHE 2022-23 data out in 2026; APAAR–Aadhaar mismatches (CU Srinagar, 2026: “a number of students have mismatch in Aadhaar and APAAR ID details”) | FORE School of Management v AICTE, Supreme Court, 21 Jun 2019; AISHE 2022-23 and 2023-24 reports (released Jul 2026); Cluster University Srinagar notice on APAAR mismatch (cusrinagar.edu.in), 2026 |
+| With Vidya Pramaan: seat #61 of 60 refused at upload; national view after each submission; mismatch returned with its reason | `test_intake_overflow_counts_seats`; background national scan after each submission; APR-004 findings in `test_upload_flags_every_planted_defect` |
 | Economic: no licence fees; one upload serves AICTE and university | Licences as above; `test_university_gets_degree_print_feed_for_affiliated_colleges_only` |
 | QR: on-device check + revocation list | `frontend/src/lib/offline.ts`; screenshot `23_public_qr_verified.png` ("not revoked as of …") |
 | APAAR opt-outs never refused | Orissa HC, *Rohit Anand Das v State of Odisha* (Dec 2025); Supreme Court direction to add an opt-out to the APAAR consent form (Jul 2026, LiveLaw); `test_provisional_ids_for_students_without_apaar` |

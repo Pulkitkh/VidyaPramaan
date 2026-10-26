@@ -258,32 +258,32 @@ def slide2(s, team_name):
     # Novelty in one line: what is new against the national systems that already exist (detail on slide 6)
     label_box(s, 0.35, 3.24, 12.63, 0.3,
               [[("What is new  ", {"bold": True, "color": ORANGE}),
-                ("APAAR, NAD / DigiLocker and ABC hold IDs and awards; none checks each admission against approved intake. "
-                 "We add that check (slide 6).", {})]],
-              fill=PALE_ORANGE, line=ORANGE, size=11, align=PP_ALIGN.LEFT, radius=0.06)
+                ("no national system checks each admission against approved intake. We add that check, on top of APAAR.",
+                 {})]],
+              fill=PALE_ORANGE, line=ORANGE, size=12, align=PP_ALIGN.CENTER, radius=0.06)
 
     # How it addresses the problem
     pointer(s, 0.35, 3.64, 6.2, "How it addresses the problem")
-    pairs = [("Only total enrolment reaches AICTE (except PGDM), per the PS", "Student-level records keyed on APAAR, per upload"),
-             ("Excess admission: fine of 5× the fee per student (APH)", "Seat #61 of 60 refused at upload and at submit"),
-             ("Same student enrolled at two colleges goes unseen", "Cross-college match + shared-contact rings"),
-             ("Records are hard to verify at source (PS)", "Signed QR, checked even offline; consent for more")]
+    pairs = [("AICTE gets only totals (PS)", "Student-level records on APAAR"),
+             ("Excess seat: 5× fee fine each (APH)", "Seat #61 of 60 refused at upload"),
+             ("Same student at two colleges", "Cross-college match + contact rings"),
+             ("Hard to verify at source (PS)", "Signed QR, checks offline")]
     for i, (prob, sol) in enumerate(pairs):
         y = 4.08 + i * 0.7
         label_box(s, 0.35, y, 2.75, 0.6, [[("✖  ", {"color": RED, "bold": True}), (prob, {})]], fill=PALE_RED,
-                  line=RGBColor(0xF0, 0xC4, 0xC0), size=11, align=PP_ALIGN.LEFT)
+                  line=RGBColor(0xF0, 0xC4, 0xC0), size=12, align=PP_ALIGN.LEFT)
         arrow(s, 3.15, y + 0.3, 3.65, y + 0.3, color=GREY, width=2)
         label_box(s, 3.7, y, 2.85, 0.6, [[("✔  ", {"color": GREEN, "bold": True}), (sol, {})]], fill=PALE_GREEN,
-                  line=RGBColor(0xBF, 0xE3, 0xC9), size=11, align=PP_ALIGN.LEFT)
+                  line=RGBColor(0xBF, 0xE3, 0xC9), size=12, align=PP_ALIGN.LEFT)
 
     # Innovation and uniqueness
     pointer(s, 6.8, 3.64, 6.18, "Innovation and uniqueness of the solution")
-    tiles = [("LuUsers2", "Twin-safe matching", "Mohd = Mohammed,\nbut Rohit ≠ Mohit"),
-             ("LuNetwork", "Ghost-admission map", "1 phone, 8 students,\n2 colleges: flagged"),
-             ("LuHistory", "Decisions kept", "reason required;\nnever re-flagged"),
-             ("LuStamp", "Signed checkpoints", "even a full history\nrewrite is caught"),
-             ("LuScale", "Rules as data", "each value sourced;\nunconfirmed: warn only"),
-             ("LuGraduationCap", "APAAR on degrees", "university print feed\nwith verification QR")]
+    tiles = [("LuUsers2", "Twin-safe matching", "Mohd = Mohammed\nRohit ≠ Mohit"),
+             ("LuNetwork", "Ghost-admission map", "1 phone, 8 students,\n2 colleges"),
+             ("LuHistory", "Decisions kept", "with a reason;\nnever re-flagged"),
+             ("LuStamp", "Signed checkpoints", "history rewrites\ndetected"),
+             ("LuScale", "Rules as data", "sourced; unconfirmed\nvalues only warn"),
+             ("LuGraduationCap", "APAAR on degrees", "university print\nfeed + QR")]
     tw, th = 1.98, 1.32
     for i, (ic, t1, t2) in enumerate(tiles):
         x, y = 6.8 + (i % 3) * (tw + 0.12), 4.08 + (i // 3) * (th + 0.1)
@@ -375,60 +375,59 @@ def slide4(s):
     twins = HELD["current_matcher"]["by_kind"]["twin"].split()[0]
     stats = [("LuUsers2", f"{cur['precision']:.2f} / {cur['recall']:.2f}",
               f"held-out precision / recall\n(old matcher {prev['precision']:.2f} / {prev['recall']:.2f})"),
-             ("LuUserCheck", f"{BENCH['twins_wrongly_flagged']} · {twins}", "twins flagged: seeded ·\nheld-out (sent for review)"),
-             ("LuShieldCheck", BENCH["planted_defect_types_caught"], f"planted error types; 0 false\nflags on {BENCH['upload_rows_clean']} clean rows"),
+             ("LuUserCheck", f"{BENCH['twins_wrongly_flagged']} · {twins}", "twins flagged:\nseeded · held-out"),
+             ("LuShieldCheck", BENCH["planted_defect_types_caught"], f"error types caught;\n0 false flags ({BENCH['upload_rows_clean']} rows)"),
              ("LuNetwork", f"{found('dual_enrolment_recall')} · {found('identity_duplicate_recall')} · {found('shared_contact_clusters_found')}",
-              "planted dual enrolments,\nidentity dupes, contact rings"),
-             ("LuBrainCircuit", BENCH["risk_precision_at_k"], "top-ranked colleges\nwere planted anomalies"),
-             ("LuFlaskConical", f"{API_TESTS} tests", f"{COVERAGE}% coverage; security\nand WCAG checks in CI")]
+              "dual enrolments · ID\ndupes · contact rings"),
+             ("LuBrainCircuit", BENCH["risk_precision_at_k"], "top-ranked colleges\nwere planted ones"),
+             ("LuFlaskConical", f"{API_TESTS} tests", f"{COVERAGE}% coverage;\nsecurity + WCAG in CI")]
     sw = 12.63 / len(stats)
     for i, (ic, v, l) in enumerate(stats):
         x = 0.35 + i * sw
         box(s, x + 0.05, 1.62, sw - 0.1, 1.2, fill=PALE, line=LINE)
         icon(s, ic, x + 0.15, 1.72, 0.42, bg=BLUE)
         text(s, x + 0.62, 1.68, sw - 0.7, 0.5, v, size=18 if len(v) > 7 else 21, bold=True, color=NAVY)
-        text(s, x + 0.15, 2.24, sw - 0.25, 0.56, l, size=10.5, color=INK, anchor=MSO_ANCHOR.TOP)
+        text(s, x + 0.15, 2.22, sw - 0.25, 0.58, l, size=11, color=INK, anchor=MSO_ANCHOR.TOP)
     label_box(s, 0.35, 2.87, 12.63, 0.32,
               [[("All synthetic data: ", {"bold": True, "color": RED}),
-                ("regression checks, not real-world accuracy, which the pilot will measure. A flag never acts on its own: "
-                 "an officer decides, with a recorded reason.", {})]],
-              fill=PALE_RED, line=RGBColor(0xF0, 0xC4, 0xC0), size=11, align=PP_ALIGN.CENTER, radius=0.06)
+                ("regression checks, not real-world accuracy (the pilot measures that). An officer decides every flag.", {})]],
+              fill=PALE_RED, line=RGBColor(0xF0, 0xC4, 0xC0), size=12, align=PP_ALIGN.CENTER, radius=0.06)
 
     pointer(s, 0.35, 3.32, 6.0, "Potential challenges and risks")
     pointer(s, 6.98, 3.32, 6.0, "Strategies for overcoming these challenges")
-    rows = [("LuPlugZap", "No public APAAR API", "Registry adapter: mock now → DigiLocker / API Setu after partner onboarding"),
-            ("LuUserX", "Students without APAAR (opt-out, FN / OCI)", "Provisional ID, never rejected; mother's or guardian's name accepted"),
-            ("LuLock", "Student privacy (DPDP Act; APAAR is voluntary)", "Consent per field, contacts encrypted at rest, no Aadhaar stored"),
-            ("LuScale", "Wrong flags: twins, spelling variants, bad data", "Rejected rows never reach risk scores; reasons shown; officer decides"),
-            ("LuCalendarClock", "Rules change; some values not yet confirmed", "Rules file per year; unconfirmed values warn, never reject"),
-            ("LuSmartphone", "ERP formats, low digital readiness", "ERP headers auto-mapped, Excel template, API keys, Hindi, phone app")]
+    rows = [("LuPlugZap", "No public APAAR API", "Adapter: mock now → DigiLocker / API Setu"),
+            ("LuUserX", "Students without APAAR (opt-out, FN / OCI)", "Provisional ID; never rejected"),
+            ("LuLock", "Privacy (DPDP Act; APAAR is voluntary)", "Field-level consent; contacts encrypted; no Aadhaar"),
+            ("LuScale", "Wrong flags: twins, spellings, bad data", "Reasons shown; officer decides; decision kept"),
+            ("LuCalendarClock", "Rules change; some values unconfirmed", "Rules file per year; unconfirmed values only warn"),
+            ("LuSmartphone", "Varied ERP formats, low digital readiness", "Headers auto-mapped; Excel template; Hindi; phone")]
     for i, (ic, ch, st) in enumerate(rows):
         y = 3.74 + i * 0.47
         box(s, 0.35, y, 6.0, 0.41, fill=PALE_RED, line=RGBColor(0xF0, 0xC4, 0xC0))
         icon(s, ic, 0.41, y + 0.04, 0.33, bg=RED)
-        text(s, 0.85, y, 5.45, 0.41, ch, size=11.5, bold=True, color=INK)
+        text(s, 0.85, y, 5.45, 0.41, ch, size=12, bold=True, color=INK)
         arrow(s, 6.4, y + 0.2, 6.93, y + 0.2, color=GREY, width=2)
         box(s, 6.98, y, 6.0, 0.41, fill=PALE_GREEN, line=RGBColor(0xBF, 0xE3, 0xC9))
-        text(s, 7.05, y, 5.88, 0.41, [[("✔  ", {"color": GREEN, "bold": True}), (st, {})]], size=11, color=INK)
+        text(s, 7.05, y, 5.88, 0.41, [[("✔  ", {"color": GREEN, "bold": True}), (st, {})]], size=12, color=INK)
     y = 6.6
     box(s, 0.35, y, 12.63, 0.3, fill=PALE_ORANGE, line=ORANGE, radius=0.06)
     text(s, 0.45, y, 12.45, 0.3, [[("Roadmap  ", {"bold": True, "color": ORANGE}),
-                                   ("M1–3 pilot, 1 state, 50 colleges: measure hours saved and false flags → M4–6 API Setu, SSO, "
-                                    "STQC → M7–12 national   ", {}),
+                                   ("M1–3 pilot: 1 state, 50 colleges, measure hours saved → M4–6 API Setu, SSO, STQC → "
+                                    "M7–12 national   ", {}),
                                    ("Cost  ", {"bold": True, "color": ORANGE}),
                                    ("no licence fees", {})]],
-         size=10.5, color=INK)
+         size=11, color=INK)
 
 
 def slide5(s):
     remove(find(s, "TextBox 8"))
     pointer(s, 0.35, 1.2, 6.6, "Potential impact on the target audience")
     cx, cy, hw = 3.65, 4.0, 2.5
-    nodes = [("LuLandmark", "AICTE & regulators", "excess & dual enrolment\ncaught at submission", 0.35, 1.68),
-             ("LuBuilding2", "Institutions", "one upload; errors and\ncorrections explained", 4.95, 1.68),
-             ("LuGraduationCap", "Universities", "APAAR + student ID\nprinted on degrees", 0.35, 3.45),
-             ("LuBriefcase", "Employers", "QR check on a phone;\nconsent for more", 4.95, 3.45),
-             ("LuUsers", "Students", "own record; control\nover who sees it", 2.68, 5.65)]
+    nodes = [("LuLandmark", "AICTE & regulators", "excess and dual\nenrolment at submission", 0.35, 1.68),
+             ("LuBuilding2", "Institutions", "one upload;\nerrors explained", 4.95, 1.68),
+             ("LuGraduationCap", "Universities", "APAAR printed\non degrees", 0.35, 3.45),
+             ("LuBriefcase", "Employers", "QR check;\nconsent for more", 4.95, 3.45),
+             ("LuUsers", "Students", "control who\nsees their record", 2.68, 5.65)]
     for ic, t1, t2, x, y in nodes:
         arrow(s, cx, cy, x + 0.98, y + 0.55, color=LINE, width=2.5, head=False)
     hh = picture(s, SHOTS / "10_aicte_dashboard.png", cx - hw / 2, cy - 0.85, hw, crop=(0.178, 0.058, 0, 0.12))
@@ -437,35 +436,35 @@ def slide5(s):
         box(s, x, y, 1.95, 1.1, fill=WHITE, line=LINE)
         icon(s, ic, x + 0.08, y + 0.1, 0.46, bg=ORANGE if t1 == "Students" else NAVY)
         text(s, x + 0.6, y + 0.08, 1.33, 0.5, t1, size=12, bold=True, color=NAVY)
-        text(s, x + 0.08, y + 0.6, 1.85, 0.48, t2, size=10.5, color=INK, anchor=MSO_ANCHOR.TOP)
+        text(s, x + 0.08, y + 0.6, 1.85, 0.48, t2, size=11, color=INK, anchor=MSO_ANCHOR.TOP)
     # Before / after, in the free corners of the impact map
-    before = ["₹23.1 cr fine = 42 excess seats × ₹11 lakh fee × 5 (FORE v AICTE, SC 2019)",
-              "AISHE 2022-23 data published in 2026",
-              "“a number of students have mismatch in Aadhaar and APAAR ID details” (CU Srinagar, 2026)"]
-    after = ["Seat #61 of 60 refused at upload, the same day",
-             "National view refreshed after each submission",
-             "Mismatch returned with its reason; fixed by re-upload"]
+    before = ["₹23.1 cr fine: 42 seats × ₹11 lakh × 5 (SC, 2019)",
+              "AISHE 2022-23 data out in 2026",
+              "APAAR–Aadhaar mismatches (CU Srinagar, 2026)"]
+    after = ["Seat #61 of 60 refused at upload",
+             "National view after each submission",
+             "Mismatch returned with its reason"]
     for x, w, title, items, fill, line, col, mark in (
             (0.35, 2.2, "Today", before, PALE_RED, RGBColor(0xF0, 0xC4, 0xC0), RED, "✖"),
             (4.72, 2.23, "With Vidya Pramaan", after, PALE_GREEN, RGBColor(0xBF, 0xE3, 0xC9), GREEN, "✔")):
         box(s, x, 4.86, w, 1.9, fill=fill, line=line)
-        text(s, x + 0.08, 4.9, w - 0.16, 0.3, title, size=11.5, bold=True, color=col)
-        text(s, x + 0.08, 5.16, w - 0.16, 1.58, [[(f"{mark} ", {"color": col, "bold": True}), (t, {})] for t in items],
-             size=10, color=INK, anchor=MSO_ANCHOR.TOP, spacing=2)
+        text(s, x + 0.08, 4.9, w - 0.16, 0.3, title, size=12, bold=True, color=col)
+        text(s, x + 0.08, 5.18, w - 0.16, 1.56, [[(f"{mark} ", {"color": col, "bold": True}), (t, {})] for t in items],
+             size=11, color=INK, anchor=MSO_ANCHOR.TOP, spacing=4)
 
     pointer(s, 7.2, 1.2, 5.78, "Benefits of the solution (social, economic, environmental, etc.)")
-    ben = [("LuHeartHandshake", "Social", "APAAR opt-outs never refused,\nas the Supreme Court requires", GREEN),
-           ("LuIndianRupee", "Economic", "no licence fees; one upload\nserves AICTE and university", BLUE),
-           ("LuLeaf", "Environmental", "fewer paper returns and\nverification letters", GREEN),
-           ("LuLandmark", "Governance", "audited evidence pack for\nreview and show-cause", NAVY)]
+    ben = [("LuHeartHandshake", "Social", "APAAR opt-outs never\nrefused (SC, 2026)", GREEN),
+           ("LuIndianRupee", "Economic", "no licence fees; one upload\nserves AICTE + university", BLUE),
+           ("LuLeaf", "Environmental", "fewer paper returns\nand letters", GREEN),
+           ("LuLandmark", "Governance", "audited evidence\npack for show-cause", NAVY)]
     bw, bh = 2.83, 1.3
     for i, (ic, t1, t2, col) in enumerate(ben):
         x, y = 7.2 + (i % 2) * (bw + 0.12), 1.62 + (i // 2) * (bh + 0.08)
         box(s, x, y, bw, bh, fill=PALE, line=LINE)
         icon(s, ic, x + 0.12, y + 0.1, 0.5, bg=col)
         text(s, x + 0.72, y + 0.1, bw - 0.8, 0.5, t1, size=13, bold=True, color=NAVY)
-        text(s, x + 0.12, y + 0.66, bw - 0.2, 0.6, t2, size=11, color=INK, anchor=MSO_ANCHOR.TOP)
-    text(s, 7.2, 4.3, 5.78, 0.26, "Expected benefits; the pilot measures hours saved and flags confirmed.", size=10.5,
+        text(s, x + 0.12, y + 0.66, bw - 0.2, 0.6, t2, size=12, color=INK, anchor=MSO_ANCHOR.TOP)
+    text(s, 7.2, 4.3, 5.78, 0.26, "Expected benefits; the pilot measures them.", size=11,
          color=GREY, align=PP_ALIGN.CENTER)
     y = 4.74
     h1 = picture(s, SHOTS / "25_certificate.png", 7.25, y, 2.5)
@@ -503,9 +502,8 @@ def slide6(s, live_url, repo_url, build):
             text(s, xs[j], yy, widths[j], 0.44, v, size=10.5 if len(v) < 12 else 9.5, bold=good,
                  color=GREEN if good else GREY, align=PP_ALIGN.CENTER)
     text(s, 0.35, y + 0.44 + 5 * 0.47 + 0.02, 7.0, 0.62,
-         [[("✔ = built and covered by a test (docs/CLAIMS.md); other columns from public documentation (refs 4–5). ", {"bold": True, "color": NAVY}),
-           ("Vidya Pramaan reuses APAAR and feeds NAD / ABC and AISHE: no new ID, no parallel credential store, "
-            "no student rejected for opting out.", {})]], size=10.5, color=GREY, anchor=MSO_ANCHOR.TOP)
+         [[("✔ = built and tested (docs/CLAIMS.md). ", {"bold": True, "color": NAVY}),
+           ("Reuses APAAR; no new ID.", {})]], size=11, color=GREY, anchor=MSO_ANCHOR.TOP)
 
     refs = [("AICTE PS SIH26263, SIH 2026", "sih.gov.in"),
             ("AICTE Approval Process Handbook 2024-27 and 2026-27 addendum (FN/OCI/PIO caps)", "aicte.gov.in"),
