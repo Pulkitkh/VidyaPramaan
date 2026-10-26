@@ -54,7 +54,7 @@ export default function Audit() {
   return (
     <>
       <PageHeader title={t("Audit trail")}
-        subtitle="Append-only and hash-chained, with signed checkpoints: each national scan signs the chain head with AICTE's key and publishes it, so even a rewrite of the whole history is detectable."
+        subtitle="Append-only and hash-chained, with signed checkpoints: each national scan signs the chain head with the issuer key and publishes it, so even a rewrite of the whole history is detectable."
         actions={<>
           <button className="btn-primary" onClick={verify} disabled={busy}><Link2 size={15} /> Verify chain</button>
           {user?.role === "AICTE_ADMIN" && <button className="btn-ghost" onClick={seal}><Stamp size={15} /> Sign checkpoint now</button>}
