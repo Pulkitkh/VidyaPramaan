@@ -98,6 +98,8 @@ def write(tf, parts, size=12, color=INK, bold=False, align=PP_ALIGN.LEFT, anchor
             f.bold = opts.get("bold", bold)
             f.italic = opts.get("italic", False)
             f.color.rgb = opts.get("color", color)
+            if opts.get("link"):
+                r.hyperlink.address = opts["link"]
 
 
 def text(slide, x, y, w, h, parts, **kw):
@@ -185,7 +187,11 @@ def find(slide, prefix):
 
 
 # --------------------------------------------------------------------------- slides
-def slide1(s, team_id, team_name, live_url=""):
+def bare(url: str) -> str:
+    return url.split("://", 1)[-1].rstrip("/")
+
+
+def slide1(s, team_id, team_name, live_url="", video_url=""):
     tb = find(s, "TextBox 9")
     values = {"Problem Statement ID": "SIH26263", "Problem Statement Title": PS_TITLE, "Theme": "Smart Automation",
               "PS Category": "Software", "Team ID": team_id, "Team Name": team_name}
@@ -218,12 +224,16 @@ def slide1(s, team_id, team_name, live_url=""):
     for p in title.text_frame.paragraphs:
         for r in p.runs:
             r.font.size = Pt(36)
-    box(s, 0.45, 5.9, 6.3, 1.1, fill=PALE, line=LINE)
-    icon(s, "LuShieldCheck", 0.6, 6.07, 0.76, bg=NAVY)
-    text(s, 1.52, 5.95, 5.15, 1.0, [[("VIDYA PRAMAAN", {"bold": True, "size": 20, "color": NAVY})],
-         [("One student. One APAAR ID. One verifiable record.", {"size": 12, "color": INK})],
-         [("Working prototype: ", {"size": 11, "color": GREY}), (live_url or "./run.sh", {"size": 11, "color": BLUE})]],
-         size=12)
+    box(s, 0.45, 5.92, 6.3, 1.3, fill=PALE, line=LINE)
+    icon(s, "LuShieldCheck", 0.6, 6.19, 0.76, bg=NAVY)
+    lines = [[("VIDYA PRAMAAN", {"bold": True, "size": 20, "color": NAVY})],
+             [("One student. One APAAR ID. One verifiable record.", {"size": 12, "color": INK})],
+             [("Working prototype: ", {"size": 11, "color": GREY}),
+              (bare(live_url) if live_url else "./run.sh", {"size": 11, "color": BLUE, "link": live_url or None})]]
+    if video_url:
+        lines.append([("Demo video (5 min): ", {"size": 11, "color": GREY}),
+                      (bare(video_url), {"size": 11, "color": BLUE, "link": video_url})])
+    text(s, 1.52, 5.96, 5.15, 1.22, lines, size=12)
 
 
 def slide2(s, team_name):
@@ -293,7 +303,7 @@ def slide2(s, team_name):
         text(s, x + 0.05, y + 0.87, tw - 0.1, 0.42, t2, size=11, color=GREY, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.TOP)
 
 
-def slide3(s, live_url, build):
+def slide3(s, live_url, build, video_url=""):
     remove(find(s, "TextBox 8"))
     pointer(s, 0.35, 1.2, 12.63, "Technologies to be used (e.g. programming languages, frameworks, hardware)")
     tech = [("LuServer", "Python · FastAPI", "REST · OpenAPI"), ("LuAtom", "React · TypeScript", "installable PWA"),
@@ -359,8 +369,10 @@ def slide3(s, live_url, build):
     if live_url:
         qr(s, live_url, 7.32, y + 0.06, 6.85 - y - 0.12, build / "qr_live.png")
         text(s, 7.32 + (6.85 - y - 0.12) + 0.12, y + 0.03, 4.8, 6.85 - y - 0.06,
-             [[("Try it live: ", {"bold": True, "color": ORANGE}), (live_url, {"color": BLUE})],
-              [("7 demo roles · synthetic data · first load can take a minute (free server)", {"size": 10.5, "color": GREY})]],
+             [[("Try it live: ", {"bold": True, "color": ORANGE}), (live_url, {"color": BLUE, "link": live_url})],
+              ([("Demo video (5 min): ", {"size": 10.5, "color": GREY}), (bare(video_url), {"size": 10.5, "color": BLUE, "link": video_url}),
+                (" · 7 roles · synthetic data", {"size": 10.5, "color": GREY})] if video_url else
+               [("7 demo roles · synthetic data · first load can take a minute (free server)", {"size": 10.5, "color": GREY})])],
              size=12, anchor=MSO_ANCHOR.MIDDLE)
     else:
         text(s, 7.32, y + 0.05, 5.6, 6.85 - y - 0.1, [[("Run locally: ", {"bold": True, "color": ORANGE}), ("./run.sh", {"color": BLUE})],
@@ -473,7 +485,7 @@ def slide5(s):
     text(s, 10.1, y + h2 + 0.05, 2.88, 0.26, "QR: on-device check + revocation list", size=10.5, color=GREY, align=PP_ALIGN.CENTER)
 
 
-def slide6(s, live_url, repo_url, build):
+def slide6(s, live_url, repo_url, build, video_url=""):
     remove(find(s, "TextBox 8"))
     pointer(s, 0.35, 1.2, 12.63, "Details / Links of the reference and research work")
     text(s, 0.35, 1.6, 7.0, 0.3, "Why not just use the systems that exist?", size=13, bold=True, color=NAVY)
@@ -530,21 +542,25 @@ def slide6(s, live_url, repo_url, build):
     y = 5.45
     box(s, 0.35, y, 12.63, 1.38, fill=PALE_ORANGE, line=ORANGE)
     slots = []
+    if video_url:
+        slots.append(("Demo video, 5 min", video_url, "qr_video.png", "every role, narrated, captioned"))
     if live_url:
-        slots.append(("Live prototype", live_url, "qr_live6.png"))
-    slots.append(("Source code & tests", repo_url, "qr_repo.png"))
-    for i, (t, url, fn) in enumerate(slots):
-        x = 0.5 + i * 6.3
-        qr(s, url, x, y + 0.1, 1.18, build / fn)
-        text(s, x + 1.32, y + 0.12, 4.8, 1.14, [[(t, {"bold": True, "color": ORANGE, "size": 13})], [(url, {"color": BLUE})],
-             [("Synthetic data only · 7 demo roles · works on phones" if i == 0 and live_url
-               else f"{API_TESTS} tests · {COVERAGE}% coverage · MIT licence", {"size": 10.5, "color": GREY})]],
-             size=12, anchor=MSO_ANCHOR.MIDDLE)
+        slots.append(("Live prototype", live_url, "qr_live6.png", "7 demo roles · synthetic data"))
+    slots.append(("Source code & tests", repo_url, "qr_repo.png", f"{API_TESTS} tests · {COVERAGE}% coverage · MIT"))
+    sw = 12.63 / len(slots)
+    for i, (t, url, fn, sub) in enumerate(slots):
+        x = 0.35 + i * sw + 0.12
+        qr(s, url, x, y + 0.12, 1.14, build / fn)
+        text(s, x + 1.24, y + 0.12, sw - 1.4, 1.14,
+             [[(t, {"bold": True, "color": ORANGE, "size": 13})],
+              [(bare(url), {"color": BLUE, "size": 10.5 if len(slots) > 2 else 12, "link": url})],
+              [(sub, {"size": 10.5, "color": GREY})]], size=12, anchor=MSO_ANCHOR.MIDDLE)
 
 
 NOTES = [
     "Vidya Pramaan: one student, one APAAR ID, one verifiable record. A working prototype for SIH26263, live at the "
-    "link on this slide, with seven demo roles and synthetic data only.",
+    "link on this slide, with seven demo roles and synthetic data only. The five-minute narrated demo video shows "
+    "every role end to end.",
     "29.6 lakh enrolments in AICTE institutions in 2025-26 and 24.25 crore APAAR IDs, yet AICTE today receives totals "
     "only. Excess admission costs five times the fee per student, and it surfaces in annual returns or inspections. Our "
     "flow is the one the problem statement asks for: upload, APAAR check, verification, central record, monitoring "
@@ -565,8 +581,8 @@ NOTES = [
     "Court upheld, national statistics arrive years late, and universities report APAAR mismatches this year. The "
     "benefits on the right are expected, not yet measured; the pilot measures them.",
     "We do not replace NAD, ABC or AISHE; we fill the gap none of them covers: student-level reconciliation of "
-    "admissions against approved intake. Sources are on the right. Both QR codes work: the live prototype and the "
-    "code with its tests.",
+    "admissions against approved intake. Sources are on the right. The three QR codes open the five-minute demo "
+    "video, the live prototype, and the code with its tests.",
 ]
 
 
@@ -585,6 +601,7 @@ def main():
     ap.add_argument("--team-name", default="AI Riders")
     ap.add_argument("--live-url", default="https://vidya-pramaan-sih26263.onrender.com")
     ap.add_argument("--repo-url", default="https://github.com/Pulkitkh/VidyaPramaan")
+    ap.add_argument("--video-url", default="https://youtu.be/eBwySqMs63Q")
     ap.add_argument("--template", default=str(HERE / "template" / "SIH2026-IDEA-Presentation-Format.pptx"))
     ap.add_argument("--out", default=str(HERE / "SIH26263_AI_Riders_Idea.pptx"))
     a = ap.parse_args()
@@ -601,12 +618,12 @@ def main():
     slides = list(prs.slides)
     for s in slides[1:]:
         set_runs(find(s, "Oval"), a.team_name, size=12)
-    slide1(slides[0], a.team_id, a.team_name, a.live_url)
+    slide1(slides[0], a.team_id, a.team_name, a.live_url, a.video_url)
     slide2(slides[1], a.team_name)
-    slide3(slides[2], a.live_url, build)
+    slide3(slides[2], a.live_url, build, a.video_url)
     slide4(slides[3])
     slide5(slides[4])
-    slide6(slides[5], a.live_url, a.repo_url, build)
+    slide6(slides[5], a.live_url, a.repo_url, build, a.video_url)
     add_notes(slides)
     cp = prs.core_properties
     cp.title = "Vidya Pramaan: SIH26263 idea submission"

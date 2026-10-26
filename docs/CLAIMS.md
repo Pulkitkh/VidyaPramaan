@@ -17,6 +17,7 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Claim | Evidence |
 |---|---|
 | PS ID SIH26263, exact title, theme Smart Automation, category Software | Official SIH 2026 listing (AICTE, Regulation Bureau) |
+| Demo video (5 min) at youtu.be/eBwySqMs63Q, also on slides 3 and 6 | Recorded from the prototype by `video/record.mjs`; narration in `video/narration.json` matches the claims on this page |
 | Working prototype at the live URL | Render service `vidya-pramaan-sih26263`; walkthrough runs against any base URL (`BASE_URL=...`) |
 
 ## Slide 2: proposed solution

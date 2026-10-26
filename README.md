@@ -6,6 +6,7 @@ Prototype for Smart India Hackathon 2026, problem statement **SIH26263** (AICTE,
 > One student. One APAAR ID. One verifiable record.
 
 Live demo: **https://vidya-pramaan-sih26263.onrender.com** (free instance: the first visit after a quiet spell can take up to a minute to wake).
+Demo video (5 min, narrated, captioned): **https://youtu.be/eBwySqMs63Q**. It is regenerated from the app by the scripts in [`video/`](video/).
 
 All institutions, students and APAAR IDs in this repository are **synthetic**. Nothing here connects to a real APAAR, DigiLocker or AICTE system.
 

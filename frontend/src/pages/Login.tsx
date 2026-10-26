@@ -72,6 +72,8 @@ export default function Login() {
             ))}
           </ol>
           <p className="mt-8 text-xs text-white/50">Prototype with synthetic data only. No real student, institution or APAAR record is used.</p>
+          <a className="mt-3 inline-flex text-sm font-medium text-white underline underline-offset-4 hover:text-saffron-100"
+            href="https://youtu.be/eBwySqMs63Q" target="_blank" rel="noreferrer">Watch the 5-minute demo video</a>
         </div>
         <div className="rounded-2xl bg-white p-5 text-ink shadow-xl sm:p-6">
           <div className="flex items-start justify-between gap-2">
