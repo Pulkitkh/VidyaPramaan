@@ -597,7 +597,7 @@ def add_notes(slides):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--team-id", default="")
+    ap.add_argument("--team-id", default="194599")
     ap.add_argument("--team-name", default="AI Riders")
     ap.add_argument("--live-url", default="https://vidya-pramaan-sih26263.onrender.com")
     ap.add_argument("--repo-url", default="https://github.com/Pulkitkh/VidyaPramaan")
