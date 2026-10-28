@@ -19,4 +19,4 @@ Decisions the prototype makes where the problem statement, AICTE rules or APAAR 
 | A-13 | Risk scores compare an institution with peers of the same type (engineering, management, pharmacy, polytechnic) when 12 or more peers exist. | Different institution types have different normal profiles. | `anomaly.py` |
 | A-14 | A correction to name, date of birth or gender replaces the student's credential and raises a review item; other corrections apply directly. | Identity changes are where fraud and errors matter most. | UPD-002 |
 | A-15 | The degree-print feed shows full APAAR IDs to the affiliating university. | PS requirement 10: degree-awarding bodies print APAAR ID with the student ID. | `/api/university/degree-feed` |
-| A-16 | All data is synthetic: 240 institutions, about 49,000 students, with planted anomalies and planted hard negatives (twins). | No real student data may be used in a public prototype. | `seed.pyw` |
+| A-16 | All data is synthetic: 240 institutions, about 49,000 students, with planted anomalies and planted hard negatives (twins). | No real student data may be used in a public prototype. | `seed.py` |

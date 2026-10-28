@@ -153,6 +153,23 @@ def picture(slide, path, x, y, w, crop=(0, 0, 0, 0), border=True):
     return h
 
 
+def framed(slide, path, x, y, w, h, region=(0, 0, 0, 0)):
+    """Fill a w x h frame from the region (left, top, right, bottom crop fractions), trimming its bottom or
+    sides so the screenshot keeps its proportions."""
+    with Image.open(path) as im:
+        iw, ih = im.size
+    l, t, r, b = region
+    rw, rh = iw * (1 - l - r), ih * (1 - t - b)
+    if rw / rh < w / h:
+        b += (rh - rw * h / w) / ih
+    else:
+        trim = (rw - rh * w / h) / iw / 2
+        l, r = l + trim, r + trim
+    box(slide, x - 0.03, y - 0.03, w + 0.06, h + 0.06, fill=WHITE, line=LINE, radius=0.04)
+    pic = slide.shapes.add_picture(str(path), Inches(x), Inches(y), Inches(w), Inches(h))
+    pic.crop_left, pic.crop_top, pic.crop_right, pic.crop_bottom = l, t, r, b
+
+
 def qr(slide, data, x, y, d, path):
     img = qrcode.make(data, box_size=10, border=1)
     img.save(path)
@@ -191,7 +208,7 @@ def bare(url: str) -> str:
     return url.split("://", 1)[-1].rstrip("/")
 
 
-def slide1(s, team_id, team_name, live_url="", video_url=""):
+def slide1(s, team_id, team_name, build, live_url="", video_url=""):
     tb = find(s, "TextBox 9")
     values = {"Problem Statement ID": "SIH26263", "Problem Statement Title": PS_TITLE, "Theme": "Smart Automation",
               "PS Category": "Software", "Team ID": team_id, "Team Name": team_name}
@@ -224,16 +241,39 @@ def slide1(s, team_id, team_name, live_url="", video_url=""):
     for p in title.text_frame.paragraphs:
         for r in p.runs:
             r.font.size = Pt(36)
+    # The template's large SIH illustration and its hexagon backdrop give way to the working prototype itself;
+    # the SIH logo in the corner (template frame) stays.
+    remove(find(s, "Picture 4"))
+    remove(find(s, "Freeform"))
+    heading = find(s, "Subtitle 3")  # "TITLE PAGE", centred over the details column so the right side is free
+    heading.left, heading.width = Inches(0.36), Inches(6.4)
+
     box(s, 0.45, 5.92, 6.3, 1.3, fill=PALE, line=LINE)
-    icon(s, "LuShieldCheck", 0.6, 6.19, 0.76, bg=NAVY)
-    lines = [[("VIDYA PRAMAAN", {"bold": True, "size": 20, "color": NAVY})],
-             [("One student. One APAAR ID. One verifiable record.", {"size": 12, "color": INK})],
-             [("Working prototype: ", {"size": 11, "color": GREY}),
-              (bare(live_url) if live_url else "./run.sh", {"size": 11, "color": BLUE, "link": live_url or None})]]
+    icon(s, "LuShieldCheck", 0.58, 6.0, 0.62, bg=NAVY)
+    lines = [[("VIDYA PRAMAAN", {"bold": True, "size": 18, "color": NAVY})],
+             [("One student. One APAAR ID. One verifiable record.", {"size": 11, "color": INK})],
+             [("Live: ", {"size": 10.5, "color": GREY}),
+              (bare(live_url) if live_url else "./run.sh", {"size": 10.5, "color": BLUE, "link": live_url or None})]]
     if video_url:
-        lines.append([("Demo video (5 min): ", {"size": 11, "color": GREY}),
-                      (bare(video_url), {"size": 11, "color": BLUE, "link": video_url})])
-    text(s, 1.52, 5.96, 5.15, 1.22, lines, size=12)
+        lines.append([("Demo video (5 min): ", {"size": 10.5, "color": GREY}),
+                      (bare(video_url), {"size": 10.5, "color": BLUE, "link": video_url})])
+    lines.append([(f"7 roles · {RULE_COUNT} rules · {API_TESTS} tests · synthetic data", {"size": 10.5, "color": GREY})])
+    text(s, 1.3, 5.95, 4.15, 1.24, lines, size=11)
+    if live_url:
+        qr(s, live_url, 5.55, 6.02, 1.1, build / "qr_live1.png")
+
+    # The prototype, as a judge would see it
+    text(s, 7.0, 1.6, 6.0, 0.3, [[("Working prototype", {"bold": True, "color": NAVY}),
+                                  ("  ·  live now, every screen below is real", {"color": GREY, "size": 11})]], size=13)
+    framed(s, SHOTS / "10_aicte_dashboard.png", 7.0, 1.95, 4.5, 3.02, region=(0.178, 0.058, 0, 0))
+    framed(s, SHOTS / "30_mobile_dashboard.png", 11.62, 1.95, 1.38, 3.02)
+    cap = dict(size=10, color=GREY, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.TOP)
+    text(s, 7.0, 5.0, 4.5, 0.26, "AICTE national view: every breach named with its rule", **cap)
+    text(s, 11.5, 5.0, 1.6, 0.26, "On a phone (PWA)", **cap)
+    framed(s, SHOTS / "14_review_identity_duplicate.png", 7.0, 5.36, 4.0, 1.45, region=(0.54, 0.015, 0, 0))
+    framed(s, SHOTS / "19_review_shared_contact_cluster.png", 11.12, 5.36, 1.88, 1.45, region=(0.6, 0.165, 0.07, 0.425))
+    text(s, 7.0, 6.86, 4.0, 0.26, "Same person under two APAAR IDs: reasons shown", **cap)
+    text(s, 10.9, 6.86, 2.3, 0.26, "1 phone, 8 students, 2 colleges", **cap)
 
 
 def slide2(s, team_name):
@@ -383,23 +423,28 @@ def slide4(s):
     remove(find(s, "TextBox 8"))
     pointer(s, 0.35, 1.2, 12.63, "Analysis of the feasibility of the idea")
     cur, prev = HELD["current_matcher"], HELD["previous_matcher"]
-    found = lambda k: BENCH[k].split("/")[0]  # noqa: E731
-    twins = HELD["current_matcher"]["by_kind"]["twin"].split()[0]
+    of = lambda v: v.replace("/", " of ")  # noqa: E731  "17/17" -> "17 of 17"
+    held_twins = of(HELD["current_matcher"]["by_kind"]["twin"].split()[0])
+    planted = [BENCH[k].split("/") for k in ("dual_enrolment_recall", "identity_duplicate_recall", "shared_contact_clusters_found")]
+    dual, ids, rings = (p[0] for p in planted)
+    # Each tile reads as one sentence: the number, then what it counts.
     stats = [("LuUsers2", f"{cur['precision']:.2f} / {cur['recall']:.2f}",
-              f"held-out precision / recall\n(old matcher {prev['precision']:.2f} / {prev['recall']:.2f})"),
-             ("LuUserCheck", f"{BENCH['twins_wrongly_flagged']} · {twins}", "twins flagged:\nseeded · held-out"),
-             ("LuShieldCheck", BENCH["planted_defect_types_caught"], f"error types caught;\n0 false flags ({BENCH['upload_rows_clean']} rows)"),
-             ("LuNetwork", f"{found('dual_enrolment_recall')} · {found('identity_duplicate_recall')} · {found('shared_contact_clusters_found')}",
-              "dual enrolments · ID\ndupes · contact rings"),
-             ("LuBrainCircuit", BENCH["risk_precision_at_k"], "top-ranked colleges\nwere planted ones"),
-             ("LuFlaskConical", f"{API_TESTS} tests", f"{COVERAGE}% coverage;\nsecurity + WCAG in CI")]
+              f"name-match precision / recall on {cur['pairs']} held-out pairs (old {prev['precision']:.2f} / {prev['recall']:.2f})"),
+             ("LuUserCheck", of(BENCH["twins_wrongly_flagged"]),
+              f"seeded twin pairs wrongly merged (held-out: {held_twins}, sent to an officer)"),
+             ("LuShieldCheck", of(BENCH["planted_defect_types_caught"]),
+              f"error types caught in the demo upload; 0 false flags on {BENCH['upload_rows_clean']} clean rows"),
+             ("LuNetwork", f"{sum(int(p[0]) for p in planted)} of {sum(int(p[1]) for p in planted)}",
+              f"planted cases found: {dual} dual enrolments, {ids} ID duplicates, {rings} contact rings"),
+             ("LuBrainCircuit", of(BENCH["risk_precision_at_k"]), "highest-risk colleges were the planted anomalies"),
+             ("LuFlaskConical", f"{API_TESTS} tests", f"{COVERAGE}% line coverage; security and WCAG checks in CI")]
     sw = 12.63 / len(stats)
     for i, (ic, v, l) in enumerate(stats):
         x = 0.35 + i * sw
         box(s, x + 0.05, 1.62, sw - 0.1, 1.2, fill=PALE, line=LINE)
-        icon(s, ic, x + 0.15, 1.72, 0.42, bg=BLUE)
-        text(s, x + 0.62, 1.68, sw - 0.7, 0.5, v, size=18 if len(v) > 7 else 21, bold=True, color=NAVY)
-        text(s, x + 0.15, 2.22, sw - 0.25, 0.58, l, size=11, color=INK, anchor=MSO_ANCHOR.TOP)
+        icon(s, ic, x + 0.15, 1.7, 0.4, bg=BLUE)
+        text(s, x + 0.6, 1.66, sw - 0.68, 0.46, v, size=17 if len(v) > 8 else 20, bold=True, color=NAVY)
+        text(s, x + 0.13, 2.13, sw - 0.23, 0.68, l, size=10.5, color=INK, anchor=MSO_ANCHOR.TOP)
     label_box(s, 0.35, 2.87, 12.63, 0.32,
               [[("All synthetic data: ", {"bold": True, "color": RED}),
                 ("regression checks, not real-world accuracy (the pilot measures that). An officer decides every flag.", {})]],
@@ -559,8 +604,10 @@ def slide6(s, live_url, repo_url, build, video_url=""):
 
 NOTES = [
     "Vidya Pramaan: one student, one APAAR ID, one verifiable record. A working prototype for SIH26263, live at the "
-    "link on this slide, with seven demo roles and synthetic data only. The five-minute narrated demo video shows "
-    "every role end to end.",
+    "link and QR on this slide, with seven demo roles and synthetic data only. The screenshots are the prototype: "
+    "the AICTE national view, where each college's headline reason is the rule it broke; the same app on a phone; "
+    "a probable duplicate under two APAAR IDs with the matcher's reasons; and one phone number shared by eight "
+    "students at two colleges. The five-minute narrated demo video shows every role end to end.",
     "29.6 lakh enrolments in AICTE institutions in 2025-26 and 24.25 crore APAAR IDs, yet AICTE today receives totals "
     "only. Excess admission costs five times the fee per student, and it surfaces in annual returns or inspections. Our "
     "flow is the one the problem statement asks for: upload, APAAR check, verification, central record, monitoring "
@@ -618,7 +665,7 @@ def main():
     slides = list(prs.slides)
     for s in slides[1:]:
         set_runs(find(s, "Oval"), a.team_name, size=12)
-    slide1(slides[0], a.team_id, a.team_name, a.live_url, a.video_url)
+    slide1(slides[0], a.team_id, a.team_name, build, a.live_url, a.video_url)
     slide2(slides[1], a.team_name)
     slide3(slides[2], a.live_url, build, a.video_url)
     slide4(slides[3])

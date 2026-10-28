@@ -289,7 +289,13 @@ def test_apaar_ids_are_masked_in_aicte_views(aicte):
 
 def test_risk_scores_come_with_plain_reasons(aicte):
     top = client.get("/api/dashboard/national", headers=aicte).json()["top_risk"][0]
-    assert top["risk_score"] >= 70 and top["reasons"] and all("peer median" in r["text"] for r in top["reasons"])
+    assert top["risk_score"] >= 70 and top["reasons"]
+    rules = [r for r in top["reasons"] if r.get("rule")]
+    stats = [r for r in top["reasons"] if not r.get("rule")]
+    assert all("peer median" in r["text"] for r in stats)
+    # A broken cap is the headline reason, ahead of any peer comparison.
+    assert rules and top["reasons"][:len(rules)] == rules
+    assert all(r["rule"] in ("INT-001", "INT-002") and f"(rule {r['rule']})" in r["text"] for r in rules)
 
 
 def test_excel_template_has_dropdowns_and_report_has_diversity(aicte):

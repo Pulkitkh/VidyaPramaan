@@ -34,11 +34,11 @@ export function RiskPanel({ inst }: { inst: InstitutionView }) {
         </div>
       </div>
       <ul className="mt-4 space-y-2">
-        {inst.reasons.length === 0 && <li className="text-sm text-ink-3">No feature deviates notably from peers.</li>}
+        {inst.reasons.length === 0 && <li className="text-sm text-ink-3">No rule breach, and no feature deviates notably from peers.</li>}
         {inst.reasons.map((r) => (
           <li key={r.feature} className="rounded-lg border border-line bg-[#fafaf8] px-3 py-2 text-sm">
             {r.text}
-            <div className="mt-0.5 text-[11px] text-ink-3 mono">{r.feature} · z = {r.z}</div>
+            <div className="mt-0.5 text-[11px] text-ink-3 mono">{r.rule ? `rule ${r.rule} · breach` : `${r.feature} · z = ${r.z}`}</div>
           </li>
         ))}
       </ul>

@@ -17,8 +17,11 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | Claim | Evidence |
 |---|---|
 | PS ID SIH26263, exact title, theme Smart Automation, category Software | Official SIH 2026 listing (AICTE, Regulation Bureau) |
-| Demo video (5 min) at youtu.be/eBwySqMs63Q, also on slides 3 and 6 | Recorded from the prototype by `video/record.mjs`; narration in `video/narration.json` matches the claims on this page |
+| Demo video (5 min) at youtu.be/eBwySqMs63Q, also on slides 3 and 6 | Screen recording of the working prototype; its narration matches the claims on this page |
 | Working prototype at the live URL | Render service `vidya-pramaan-sih26263`; walkthrough runs against any base URL (`BASE_URL=...`) |
+| Screenshots of the working prototype (national view, phone, duplicate review, shared-contact graph) | `docs/screenshots/10_aicte_dashboard.png`, `30_mobile_dashboard.png`, `14_review_identity_duplicate.png`, `19_review_shared_contact_cluster.png`, saved by the walkthrough |
+| National view names each college's breach with its rule | `test_risk_scores_come_with_plain_reasons` (INT-001 / INT-002 reasons come before peer comparisons) |
+| 7 roles · 31 rules · 65 tests | `main.demo_users`; `test_rule_catalogue_has_31_explained_rules`; test count from `backend/tests` |
 
 ## Slide 2: proposed solution
 | Claim | Evidence |
@@ -65,7 +68,7 @@ Tests named below live in `backend/tests/test_flow.py` and `backend/tests/test_p
 | 0.79 / 0.92 held-out precision / recall (old matcher 0.65 / 0.68) | `scripts/identity_eval.py` on `tests/data/identity_pairs_holdout.csv`; `test_identity_matching_beats_previous_matcher_on_held_out_pairs` |
 | 0 / 80 twins wrongly merged | `docs/benchmark.json` `twins_wrongly_flagged`; `test_seeded_twins_are_not_flagged_as_duplicates` |
 | 17/17 planted error types; 0 false flags on 56 clean rows | `docs/benchmark.json` |
-| 164 · 57 · 4 planted dual enrolments, identity duplicates, contact rings found | `docs/benchmark.json` (recall 164/164, 57/57, 4/4) |
+| 225 of 225 planted cases found (164 dual enrolments, 57 identity duplicates, 4 contact rings) | `docs/benchmark.json` (recall 164/164, 57/57, 4/4) |
 | 42/46 top-ranked colleges were planted anomalies | `docs/benchmark.json` `risk_precision_at_k` |
 | 65 tests; 93% coverage; security and WCAG checks in CI | `docs/evidence.json` (from `scripts/evidence.py`); `.github/workflows/ci.yml` (bandit, pip-audit, npm audit, axe-core); `docs/accessibility_report.json` (34 screen checks, 0 violations) |
 | All synthetic data; a flag never acts on its own | Stated on the slide and in `scripts/benchmark.py`; findings change only through an officer decision with a reason (`test_decisions_need_a_reason_and_survive_the_next_scan`) |
