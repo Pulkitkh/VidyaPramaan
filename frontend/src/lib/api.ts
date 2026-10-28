@@ -51,7 +51,7 @@ export interface Batch {
   scan?: { findings: number; by_rule: Record<string, number> };
 }
 
-export interface Reason { feature: string; value: number; peer_median: number; z: number; text: string; peers?: string }
+export interface Reason { feature: string; value: number; peer_median: number | null; z: number | null; text: string; peers?: string | null; rule?: string }
 
 export interface LedgerRow {
   programme_id: number;

@@ -81,6 +81,36 @@ def compute_features(db: Session) -> tuple[list[int], np.ndarray, dict]:
     return insts, np.array(X, dtype=float), per_rule
 
 
+BREACH_RULES = {"INT-001": "over approved intake", "INT-002": "over a supernumerary cap"}
+
+
+def rule_breaches(db: Session) -> dict[int, list[dict]]:
+    """Open intake and supernumerary-cap breaches per institution, as plain reasons (one per rule)."""
+    found = defaultdict(lambda: defaultdict(list))
+    for inst_id, code, message, evidence in db.execute(
+            select(Finding.institution_id, Finding.rule_code, Finding.message, Finding.evidence)
+            .where(Finding.status == "OPEN", Finding.rule_code.in_(BREACH_RULES)).order_by(Finding.id)):
+        found[inst_id][code].append((message, evidence or {}))
+    out: dict[int, list[dict]] = {}
+    for inst_id, by_rule in found.items():
+        out[inst_id] = []
+        for code in BREACH_RULES:
+            items = by_rule.get(code)
+            if not items:
+                continue
+            if code == "INT-001":
+                value = sum(e.get("excess", 0) for _, e in items)
+            else:
+                value = sum(max(0, e.get("enrolled", 0) - e.get("cap", 0)) for _, e in items)
+            if len(items) == 1:
+                txt = items[0][0].replace("FN_OCI_PIO", "FN/OCI/PIO")
+            else:
+                txt = f"{len(items)} programmes {BREACH_RULES[code]}, {value} seats in excess"
+            out[inst_id].append({"feature": code, "rule": code, "value": value, "peer_median": None, "z": None,
+                                 "peers": None, "text": f"{txt} (rule {code})"})
+    return out
+
+
 def score_institutions(db: Session) -> dict:
     ids, X, per_rule = compute_features(db)
     if len(ids) < 10:
@@ -112,6 +142,7 @@ def score_institutions(db: Session) -> dict:
         .where(Finding.status == "OPEN", Finding.enrolment_id.is_not(None), Finding.severity != "INFO")
         .group_by(Finding.institution_id)).all())
 
+    breaches = rule_breaches(db)
     for k, inst_id in enumerate(ids):
         med, spread, label = peer[k]
         z = (X[k] - med) / spread
@@ -135,7 +166,11 @@ def score_institutions(db: Session) -> dict:
             risk = min(risk, 30.0)
         inst = db.get(Institution, inst_id)
         inst.risk_score = risk
-        inst.risk_reasons = reasons
+        # Rule breaches are shown before peer statistics: a share that is unusual but within its cap must not
+        # read as the reason a college is flagged when it has actually broken a cap.
+        broken = breaches.get(inst_id, [])
+        shown = {"excess_admission_rate"} if any(b["rule"] == "INT-001" for b in broken) else set()
+        inst.risk_reasons = broken + [r for r in reasons if r["feature"] not in shown]
         t = totals.get(inst_id, 0)
         inst.quality_score = round(100 * (1 - flagged.get(inst_id, 0) / t), 1) if t else 100.0
     db.flush()
