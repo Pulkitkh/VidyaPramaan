@@ -383,9 +383,11 @@ def test_issuer_key_rotation_resigns_everything():
 
 # --------------------------------------------------------------------------- deployment safety
 def test_security_headers_are_set():
-    h = client.get("/api/meta").headers
+    r = client.get("/api/meta")
+    h = r.headers
     assert "frame-ancestors 'none'" in h["content-security-policy"]
     assert h["x-content-type-options"] == "nosniff" and h["cache-control"] == "no-store"
+    assert "commit" in r.json()  # the deploy workflow waits for this to match the pushed commit
 
 
 def test_demo_reset_needs_the_pin_when_one_is_set(monkeypatch, aicte):

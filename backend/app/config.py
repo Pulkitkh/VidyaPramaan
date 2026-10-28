@@ -25,6 +25,8 @@ PUBLIC_BASE_URL = (os.getenv("VP_PUBLIC_BASE_URL") or os.getenv("RENDER_EXTERNAL
                    or (f"https://{os.environ['SPACE_HOST']}" if os.getenv("SPACE_HOST") else "")
                    or "http://localhost:8000").rstrip("/")
 APAAR_REGISTRY = os.getenv("VP_APAAR_REGISTRY", "mock")  # mock | digilocker
+# The commit this build runs (set by the host), so a deployment can confirm which version is live.
+COMMIT = os.getenv("VP_COMMIT") or os.getenv("RENDER_GIT_COMMIT") or ""
 # Demo conveniences (one-click role sign-in, OTP shown on screen, reset and tamper simulation) are off
 # unless explicitly enabled, so a production deployment cannot ship them by accident.
 DEMO_MODE = os.getenv("VP_DEMO_MODE", "0") == "1"

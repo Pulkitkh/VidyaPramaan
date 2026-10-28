@@ -86,6 +86,8 @@ The repository includes a `Dockerfile` (UI + API in one container, synthetic dat
 
 **Render (free plan):** New → Blueprint → pick this repository → Apply, then set `VP_DEMO_PIN` in the service's environment. **Any Docker host:** `docker build -t vidya-pramaan . && docker run -p 8000:8000 -e VP_SECRET_KEY=<random> -e VP_DEMO_MODE=1 -e VP_PUBLIC_BASE_URL=https://<your-host> vidya-pramaan`
 
+**Continuous deployment:** after CI passes on `main`, the *Deploy* workflow triggers Render and waits until `/api/meta` reports the new commit; each run appears under the repository's *production* deployments. It needs one repository secret, `RENDER_DEPLOY_HOOK_URL` (Render → service → Settings → Deploy Hook).
+
 ## Seven roles, one demo script
 
 | Sign in as | Try this |

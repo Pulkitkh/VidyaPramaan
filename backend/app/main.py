@@ -165,7 +165,7 @@ def meta():
             "supernumerary": {k: v["caps"] for k, v in config.SUPERNUMERARY.items()},
             "admission_window": config.ADMISSION_WINDOW, "apaar_registry": config.APAAR_REGISTRY,
             "columns": COLUMNS, "demo_mode": config.DEMO_MODE, "demo_pin_required": bool(config.DEMO_PIN),
-            "issuer_key_id": key_id()}
+            "issuer_key_id": key_id(), "commit": config.COMMIT}
 
 
 @app.get("/api/rules")

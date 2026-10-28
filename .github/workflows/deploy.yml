@@ -1,0 +1,49 @@
+name: Deploy
+
+# After CI passes on main, deploy to Render and wait until the live site runs the new commit.
+# The run is recorded as a GitHub deployment to the "production" environment, with the live URL.
+# Needs one repository secret: RENDER_DEPLOY_HOOK_URL (Render → service → Settings → Deploy Hook).
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  render:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://vidya-pramaan-sih26263.onrender.com
+    env:
+      SITE: https://vidya-pramaan-sih26263.onrender.com
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Start the Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::Add the RENDER_DEPLOY_HOOK_URL repository secret (Render → service → Settings → Deploy Hook)."
+            exit 1
+          fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+      - name: Wait until the live site runs this commit
+        run: |
+          for i in $(seq 1 60); do
+            live=$(curl -fsS --max-time 60 "$SITE/api/meta" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("commit") or "")' || true)
+            if [ "$live" = "$SHA" ]; then echo "Live on $SHA"; exit 0; fi
+            sleep 15
+          done
+          echo "::error::The live site still reports '${live}', not $SHA, after 15 minutes."
+          exit 1
