@@ -9,7 +9,9 @@ backend/data/
 *.db-shm
 *.db-wal
 .DS_Store
-ppt/.build/
+*.tsbuildinfo
+e2e/screenshots/
+e2e/accessibility_report.json
 # Secrets and local credentials: never commit these
 .env
 .env.*
