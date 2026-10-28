@@ -10,8 +10,6 @@ Demo video (5 min, narrated, captioned): **https://youtu.be/eBwySqMs63Q**.
 
 All institutions, students and APAAR IDs in this repository are **synthetic**. Nothing here connects to a real APAAR, DigiLocker or AICTE system.
 
-![AICTE national dashboard](docs/screenshots/10_aicte_dashboard.png)
-
 ## Why it exists
 
 NAD/DigiLocker already verifies degrees with the student's consent, ABC holds credits and AISHE publishes aggregate statistics two to three years late. What AICTE does not have is a **near-real-time, student-level view that reconciles every admission against approved intake and catches the same student enrolled twice**. Excess admission costs an institution five times the fee per excess student (*FORE School of Management v AICTE*, 2019), so evidence has to be right. Vidya Pramaan is that reconciliation and verification layer. It consumes APAAR, does not replace it, and produces the APAAR-linked records that NAD/ABC and AISHE expect.
@@ -29,7 +27,7 @@ Institution → student data upload → APAAR validation → data verification �
 | 5. Secure verification for AICTE, institutions, employers and other regulators | Public QR check (also on the device, offline); consent-based verification with OTP; state-regulator role; university role |
 | 6. Verifiable student records | W3C-style credential signed with Ed25519 and a compact signed QR; credentials are superseded on correction and revoked on exit |
 | 7. Integration with existing systems | REST API with OpenAPI at `/docs`; registry adapter for DigiLocker / API Setu; signed audit checkpoints anyone can archive |
-| 8. Security, privacy, RBAC, audit, consent | 7 roles; masked IDs; explicit consent (never assumed); student-visible access log; hash-chained audit with signed checkpoints. See [docs/SECURITY.md](docs/SECURITY.md) |
+| 8. Security, privacy, RBAC, audit, consent | 7 roles; masked IDs; explicit consent (never assumed); student-visible access log; hash-chained audit with signed checkpoints |
 | 9. Reports | Excess-intake CSV, state summary XLSX (with the ruleset used), per-institution evidence pack for review or show-cause |
 | 10. APAAR ID + student ID on certificates | University degree-print feed (APAAR ID + roll number + verification QR); certificate PDF; `GET /api/v1/certificate-data/{id}` |
 
@@ -102,7 +100,7 @@ The repository includes a `Dockerfile` (UI + API in one container, synthetic dat
 
 ## Measured
 
-`cd backend && python -m app.seed && python -m scripts.benchmark` → [`docs/benchmark.json`](docs/benchmark.json).
+`cd backend && python -m app.seed && python -m scripts.benchmark` prints these results as JSON.
 
 | Check | Result | What it means |
 |---|---|---|
@@ -123,7 +121,7 @@ cd e2e && npm install && npm test      # browser walkthrough of all 7 roles (ser
 cd e2e && npm run a11y                 # axe-core WCAG 2.1 AA check of 17 screens, desktop and phone
 ```
 
-The browser walkthrough resets the demo, drives every role, fails on any browser console error, measures the live dashboard update, and saves the screenshots in `docs/screenshots/`. CI runs on every push: tests on SQLite and PostgreSQL with a coverage floor, migrations up, drift check, down and up again, bandit, pip-audit, npm audit, the browser walkthrough and the accessibility check. Results are summarised in [docs/SECURITY.md](docs/SECURITY.md#evidence-run-on-every-push-ci).
+The browser walkthrough resets the demo, drives every role, fails on any browser console error, measures the live dashboard update, and saves the screenshots in `e2e/screenshots/`. CI runs on every push: tests on SQLite and PostgreSQL with a coverage floor, migrations up, drift check, down and up again, bandit, pip-audit, npm audit, the browser walkthrough and the accessibility check.
 
 ## Architecture
 
@@ -155,18 +153,6 @@ Production path: PostgreSQL with row-level security and encrypted PII columns, A
 - Real OTP delivery. The demo shows the OTP on screen.
 - Hindi covers navigation, headline labels and the sign-in page, not every screen.
 - Supernumerary values marked `verified: false` in the rules file must be confirmed against the handbook in force.
-
-More: [assumptions](docs/ASSUMPTIONS.md) · [data dictionary](docs/DATA_DICTIONARY.md) · [security and privacy](docs/SECURITY.md) · [claim-to-evidence map for the deck](docs/CLAIMS.md).
-
-## Submission deck
-
-`ppt/SIH26263_AI_Riders_Idea.pptx` and `.pdf` are built inside the official SIH 2026 idea template (`ppt/template/`): six slides, template frame and pointers unchanged, content as diagrams, flowcharts and prototype screenshots.
-
-```bash
-cd ppt && npm install && node export_icons.js .build/icons
-../.venv/bin/pip install python-pptx
-../.venv/bin/python build_template_deck.py --team-id <ID>
-```
 
 ## Licence
 

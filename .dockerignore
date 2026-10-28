@@ -4,6 +4,4 @@ backend/data
 **/__pycache__
 .venv
 .git
-ppt
-docs
 e2e

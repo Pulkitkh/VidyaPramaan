@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node demo_walkthrough.mjs ../docs/screenshots",
-    "a11y": "node accessibility.mjs ../docs/accessibility_report.json"
+    "test": "node demo_walkthrough.mjs screenshots",
+    "a11y": "node accessibility.mjs accessibility_report.json"
   },
   "devDependencies": {
     "axe-core": "4.13.0",
