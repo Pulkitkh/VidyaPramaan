@@ -54,10 +54,10 @@ RESEED=1 ./run.sh        # start again from a fresh dataset
 
 Open http://localhost:8000 and choose a demo user. API reference: http://localhost:8000/docs.
 
-**Demo day tips**
+**Demo tips**
 - To repeat the walkthrough, sign in as the AICTE officer and press **Reset demo**. On the public site this needs the demo PIN (`VP_DEMO_PIN`). The reset undoes everything submitted through the portal; the audit trail is kept and records the reset.
 - The tamper demonstrations on the Audit screen run on an in-memory copy, so visitors cannot leave the shared demo broken.
-- To let judges scan the certificate QR with a phone on a local run, start the server with the laptop's address, for example `VP_PUBLIC_BASE_URL=http://192.168.1.20:8000 ./run.sh`.
+- To scan the certificate QR with a phone on a local run, start the server with the laptop's address, for example `VP_PUBLIC_BASE_URL=http://192.168.1.20:8000 ./run.sh`.
 - The app is installable (PWA). The QR verification page checks signatures on the device and still works without a connection.
 
 Manual steps:
